@@ -1,5 +1,6 @@
 import 'package:billkmotolinkltd/services/toast_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/firebase_global.dart';
 import 'package:intl/intl.dart';
 
@@ -30,17 +31,30 @@ class MyProfile extends StatelessWidget {
           }
 
           final userData = snapshot.data!;
-          return CustomScrollView(
-            slivers: [
-              _ProfileAppBar(userData: userData),
-              SliverToBoxAdapter(
-                child: _ProfileBody(
-                  userData: userData,
-                  onChangePhoto: changeProfilePhoto,
-                  onApplyLeave: applyLeave,
-                ),
+          return AnnotatedRegion<SystemUiOverlayStyle>(
+            // The hero is always dark, so keep status-bar icons light while
+            // this page is open.
+            value: const SystemUiOverlayStyle(
+              statusBarColor: Colors.transparent,
+              statusBarIconBrightness: Brightness.light,
+              statusBarBrightness: Brightness.dark,
+              systemNavigationBarColor: Colors.transparent,
+            ),
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
               ),
-            ],
+              slivers: [
+                _ProfileAppBar(userData: userData),
+                SliverToBoxAdapter(
+                  child: _ProfileBody(
+                    userData: userData,
+                    onChangePhoto: changeProfilePhoto,
+                    onApplyLeave: applyLeave,
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -48,25 +62,34 @@ class MyProfile extends StatelessWidget {
   }
 }
 
+// Role helpers shared by the hero and the body.
+bool _isCeo(Map<String, dynamic> d) =>
+    d['userRank']?.toString().toLowerCase() == 'ceo';
+bool _isRider(Map<String, dynamic> d) =>
+    d['userRank']?.toString().toLowerCase() == 'rider';
+
 // ── Loading ─────────────────────────────────────────────────────────────────
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(strokeWidth: 2.5, color: Colors.teal),
-            SizedBox(height: 16),
-            Text(
-              'Loading profile...',
-              style: TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircularProgressIndicator(strokeWidth: 2.5, color: scheme.primary),
+          const SizedBox(height: 16),
+          Text(
+            'Loading profile...',
+            style: TextStyle(
+              fontSize: 13,
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -79,8 +102,10 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SafeArea(
+      child: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -90,32 +115,27 @@ class _ErrorView extends StatelessWidget {
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: scheme.error.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.person_off_rounded, size: 36, color: Colors.red),
+                child: Icon(Icons.person_off_rounded, size: 36, color: scheme.error),
               ),
               const SizedBox(height: 20),
               Text(
                 'Could not load profile',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
                 error ?? 'No data available',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
               ),
               const SizedBox(height: 28),
               FilledButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_rounded, size: 18),
                 label: const Text('Go Back'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
               ),
             ],
           ),
@@ -125,173 +145,240 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ── SliverAppBar ─────────────────────────────────────────────────────────────
+// ── Hero (runs edge-to-edge under the status bar) ────────────────────────────
 class _ProfileAppBar extends StatelessWidget {
   final Map<String, dynamic> userData;
   const _ProfileAppBar({required this.userData});
 
+  static const Color _heroTop = Color(0xFF0E5F57);
+  static const Color _heroBottom = Color(0xFF06302C);
+
   @override
   Widget build(BuildContext context) {
+    final topInset = MediaQuery.of(context).padding.top;
     final profilePic = userData['pfp_url'] ??
         'https://img.icons8.com/liquid-glass-color/1200/user-male-circle.jpg';
     final isActive = userData['isActive'] ?? false;
+    final name = (userData['userName'] ?? 'Profile').toString();
+    final rank = (userData['userRank'] ?? '').toString();
+
+    const collapsedBody = kToolbarHeight;
+    final expandedHeight = topInset + 270;
 
     return SliverAppBar(
-      expandedHeight: 300,
-      floating: true,
-      snap: true,
       pinned: true,
-      backgroundColor: const Color(0xFF0043BA),
+      expandedHeight: expandedHeight,
+      backgroundColor: _heroBottom,
+      surfaceTintColor: Colors.transparent,
+      foregroundColor: Colors.white,
       elevation: 0,
-      title: Text(
-        userData['userName'] ?? 'Profile',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 20,
-          letterSpacing: -0.3,
-        ),
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        collapseMode: CollapseMode.parallax,
-        background: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Gradient bg
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF003DA5), Color(0xFF0066EE)],
-                ),
-              ),
-            ),
+      scrolledUnderElevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      flexibleSpace: LayoutBuilder(
+        builder: (context, constraints) {
+          final minExtent = topInset + collapsedBody;
+          final t = ((expandedHeight - constraints.maxHeight) /
+                  (expandedHeight - minExtent))
+              .clamp(0.0, 1.0);
+          final expandedOpacity = (1 - t * 1.8).clamp(0.0, 1.0);
+          final collapsedOpacity = ((t - 0.6) / 0.4).clamp(0.0, 1.0);
 
-            // Decorative circles
-            Positioned(
-              top: -40,
-              right: -40,
-              child: Container(
-                width: 180,
-                height: 180,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.05),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 30,
-              right: 60,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.04),
-                ),
-              ),
-            ),
-
-            // Avatar + name in expanded area
-            Positioned(
-              bottom: 24,
-              left: 0,
-              right: 0,
-              child: Column(
-                children: [
-                  _AvatarWidget(profilePic: profilePic, isActive: isActive),
-                  const SizedBox(height: 12),
-                  Text(
-                    userData['userName'] ?? 'Unknown',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-                    ),
-                    child: Text(
-                      userData['userRank'] ?? '',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Bottom fade
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 60,
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // Brand gradient, reaching all the way up behind the status bar
+              const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.15)],
+                    colors: [_heroTop, _heroBottom],
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+
+              // Soft decorative rings
+              Positioned(
+                top: -60,
+                right: -50,
+                child: _Ring(size: 220, opacity: 0.06 * expandedOpacity),
+              ),
+              Positioned(
+                top: topInset + 70,
+                left: -70,
+                child: _Ring(size: 160, opacity: 0.05 * expandedOpacity),
+              ),
+
+              // Expanded: avatar, name, rank
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 34,
+                child: Opacity(
+                  opacity: expandedOpacity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _Avatar(profilePic: profilePic, isActive: isActive),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
+                        ),
+                      ),
+                      if (rank.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            rank.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // Collapsed: compact name in the pinned bar
+              Positioned(
+                left: 56,
+                right: 16,
+                top: topInset,
+                height: collapsedBody,
+                child: Opacity(
+                  opacity: collapsedOpacity,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Rounded lip where the hero meets the page
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: -1,
+                child: Opacity(
+                  opacity: 1 - t,
+                  child: Container(
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _AvatarWidget extends StatelessWidget {
-  final String profilePic;
-  final bool isActive;
-  const _AvatarWidget({required this.profilePic, required this.isActive});
+class _Ring extends StatelessWidget {
+  final double size;
+  final double opacity;
+  const _Ring({required this.size, required this.opacity});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 3.5),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6)),
-            ],
-            image: DecorationImage(fit: BoxFit.cover, image: NetworkImage(profilePic)),
-          ),
-        ),
-        Positioned(
-          bottom: 2,
-          right: 2,
-          child: Container(
-            width: 22,
-            height: 22,
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: opacity),
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  final String profilePic;
+  final bool isActive;
+  const _Avatar({required this.profilePic, required this.isActive});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF22C55E) : Colors.grey,
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2.5),
+              color: Colors.white.withValues(alpha: 0.25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.network(
+                profilePic,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: Colors.white24,
+                  child: const Icon(Icons.person_rounded, color: Colors.white, size: 44),
+                ),
+              ),
             ),
           ),
-        ),
-      ],
+          Positioned(
+            bottom: 3,
+            right: 3,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFF22C55E) : Colors.grey,
+                shape: BoxShape.circle,
+                border: Border.all(color: _ProfileAppBar._heroBottom, width: 3),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -324,20 +411,23 @@ class _ProfileBody extends StatelessWidget {
     return 'Ksh ${NumberFormat('#,##0').format(n.toInt())}';
   }
 
-  bool get _isCEO => userData['userRank']?.toString().toLowerCase() == 'ceo';
-
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCeo = _isCeo(userData);
+    final isRider = _isRider(userData);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 40),
+      padding: EdgeInsets.fromLTRB(
+        12,
+        4,
+        12,
+        28 + MediaQuery.of(context).padding.bottom,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-          // Stats row (non-CEO only)
-          if (!_isCEO) ...[
+          // Rider-only: targets and last result
+          if (isRider) ...[
             Row(
               children: [
                 Expanded(
@@ -345,97 +435,92 @@ class _ProfileBody extends StatelessWidget {
                     label: 'Daily Target',
                     value: _formatNumber(userData['dailyTarget']),
                     icon: Icons.flag_rounded,
-                    color: Colors.teal,
-                    isDark: isDark,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: _StatCard(
                     label: 'Previous Net',
                     value: _formatNumber(userData['netClockedLastly']),
                     icon: Icons.trending_up_rounded,
-                    color: Colors.indigo,
-                    isDark: isDark,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
           ],
 
-          // Action buttons
+          // Actions: leave does not apply to the CEO
           Row(
             children: [
               Expanded(
                 child: _ActionButton(
                   label: 'Change Photo',
                   icon: Icons.photo_camera_rounded,
-                  color: Colors.teal,
                   onTap: onChangePhoto,
-                  isDark: isDark,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ActionButton(
-                  label: 'Apply Leave',
-                  icon: Icons.event_busy_rounded,
-                  color: Colors.red,
-                  onTap: onApplyLeave,
-                  isDark: isDark,
-                  filled: true,
+              if (!isCeo) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ActionButton(
+                    label: 'Apply Leave',
+                    icon: Icons.event_busy_rounded,
+                    onTap: onApplyLeave,
+                    filled: true,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
 
-          const SizedBox(height: 32),
-
-          // Profile details
-          _SectionHeader(title: 'Profile Details'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 24),
+          const _SectionHeader(title: 'Profile Details'),
           _InfoGroup(
-            isDark: isDark,
             items: [
-              _InfoRow(icon: Icons.person_rounded,        label: 'Name',      value: _str(userData['userName'])),
-              _InfoRow(icon: Icons.badge_rounded,         label: 'Role',      value: _str(userData['userRank'])),
-              _InfoRow(icon: Icons.phone_rounded,         label: 'Phone',     value: _str(userData['phoneNumber'])),
-              _InfoRow(icon: Icons.email_rounded,         label: 'Email',     value: _str(userData['email'])),
-              _InfoRow(icon: Icons.credit_card_rounded,   label: 'ID Number', value: _str(userData['idNumber'])),
-              _InfoRow(icon: Icons.wc_rounded,            label: 'Gender',    value: _str(userData['gender'])),
+              _InfoRow(icon: Icons.person_rounded, label: 'Name', value: _str(userData['userName'])),
+              _InfoRow(icon: Icons.badge_rounded, label: 'Role', value: _str(userData['userRank'])),
+              _InfoRow(icon: Icons.phone_rounded, label: 'Phone', value: _str(userData['phoneNumber'])),
+              _InfoRow(icon: Icons.email_rounded, label: 'Email', value: _str(userData['email'])),
+              _InfoRow(icon: Icons.credit_card_rounded, label: 'ID Number', value: _str(userData['idNumber'])),
+              _InfoRow(icon: Icons.wc_rounded, label: 'Gender', value: _str(userData['gender'])),
             ],
           ),
 
-          if (!_isCEO) ...[
-            const SizedBox(height: 28),
-            _SectionHeader(title: 'Work Stats'),
-            const SizedBox(height: 12),
+          // Rider-only work details
+          if (isRider) ...[
+            const SizedBox(height: 22),
+            const _SectionHeader(title: 'Work'),
             _InfoGroup(
-              isDark: isDark,
-              accentColor: Colors.orange,
               items: [
-                _InfoRow(icon: Icons.flag_rounded,                    label: 'Daily Target',   value: _formatNumber(userData['dailyTarget'])),
-                _InfoRow(icon: Icons.directions_bike_rounded,         label: 'Current Bike',   value: _str(userData['currentBike'], 'None')),
-                _InfoRow(icon: Icons.account_balance_wallet_rounded,  label: 'Balance',        value: _formatCurrency(userData['currentInAppBalance'])),
-                _InfoRow(icon: Icons.notifications_rounded,           label: 'Notifications',  value: _str(userData['numberOfNotifications'], '0')),
+                _InfoRow(icon: Icons.directions_bike_rounded, label: 'Current Bike', value: _str(userData['currentBike'], 'None')),
+                _InfoRow(icon: Icons.account_balance_wallet_rounded, label: 'Balance', value: _formatCurrency(userData['currentInAppBalance'])),
+                _InfoRow(icon: Icons.notifications_rounded, label: 'Notifications', value: _str(userData['numberOfNotifications'], '0')),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 22),
+            const _SectionHeader(title: 'Account'),
+            _InfoGroup(
+              items: [
+                _InfoRow(icon: Icons.notifications_rounded, label: 'Notifications', value: _str(userData['numberOfNotifications'], '0')),
               ],
             ),
           ],
 
-          const SizedBox(height: 28),
-
-          // Status
-          _SectionHeader(title: 'Status'),
-          const SizedBox(height: 12),
+          const SizedBox(height: 22),
+          const _SectionHeader(title: 'Status'),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _StatusChip(label: 'Clocked In', active: userData['isClockedIn'] ?? false,   icon: Icons.access_time_rounded),
-              _StatusChip(label: 'Verified',   active: userData['isVerified'] ?? false,    icon: Icons.verified_rounded),
-              _StatusChip(label: 'Active',     active: userData['isActive'] ?? false,      icon: Icons.circle),
-              _StatusChip(label: 'Charging',   active: userData['isCharging'] ?? false,    icon: Icons.battery_charging_full_rounded),
+              _StatusChip(label: 'Verified', active: userData['isVerified'] ?? false, icon: Icons.verified_rounded),
+              _StatusChip(label: 'Active', active: userData['isActive'] ?? false, icon: Icons.circle),
+              // Shift and charging state only mean something for riders
+              if (isRider) ...[
+                _StatusChip(label: 'Clocked In', active: userData['isClockedIn'] ?? false, icon: Icons.access_time_rounded),
+                _StatusChip(label: 'Charging', active: userData['isCharging'] ?? false, icon: Icons.battery_charging_full_rounded),
+              ],
             ],
           ),
         ],
@@ -452,25 +537,18 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 18,
-          decoration: BoxDecoration(
-            color: Colors.teal,
-            borderRadius: BorderRadius.circular(2),
-          ),
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
+          color: scheme.onSurfaceVariant,
         ),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.2,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -484,31 +562,16 @@ class _InfoRow {
 
 class _InfoGroup extends StatelessWidget {
   final List<_InfoRow> items;
-  final bool isDark;
-  final Color accentColor;
-
-  const _InfoGroup({
-    required this.items,
-    required this.isDark,
-    this.accentColor = Colors.teal,
-  });
+  const _InfoGroup({required this.items});
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.07),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         children: List.generate(items.length, (i) {
@@ -517,42 +580,33 @@ class _InfoGroup extends StatelessWidget {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
+                    Icon(item.icon, color: scheme.primary, size: 19),
+                    const SizedBox(width: 14),
+                    SizedBox(
+                      width: 84,
+                      child: Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w500,
+                          color: scheme.onSurfaceVariant,
+                        ),
                       ),
-                      child: Icon(item.icon, color: accentColor, size: 18),
                     ),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.label,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade500,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.value,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        item.value,
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
                   ],
@@ -561,10 +615,8 @@ class _InfoGroup extends StatelessWidget {
               if (!isLast)
                 Divider(
                   height: 1,
-                  indent: 64,
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : Colors.black.withValues(alpha: 0.05),
+                  indent: 47,
+                  color: scheme.outlineVariant.withValues(alpha: 0.7),
                 ),
             ],
           );
@@ -578,64 +630,56 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  final Color color;
-  final bool isDark;
 
   const _StatCard({
     required this.label,
     required this.value,
     required this.icon,
-    required this.color,
-    required this.isDark,
   });
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.07),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.10),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 18),
+          Row(
+            children: [
+              Icon(icon, color: scheme.primary, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
-              letterSpacing: -0.5,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-              fontWeight: FontWeight.w500,
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w800,
+                color: scheme.onSurface,
+                letterSpacing: -0.5,
+              ),
             ),
           ),
         ],
@@ -647,45 +691,48 @@ class _StatCard extends StatelessWidget {
 class _ActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
-  final Color color;
   final VoidCallback onTap;
-  final bool isDark;
   final bool filled;
 
   const _ActionButton({
     required this.label,
     required this.icon,
-    required this.color,
     required this.onTap,
-    required this.isDark,
     this.filled = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: filled ? color : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: filled ? null : Border.all(color: color.withValues(alpha: 0.25)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: filled ? Colors.white : color, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: filled ? Colors.white : color,
+    final scheme = Theme.of(context).colorScheme;
+    // Leave is a quieter destructive-ish action: tinted red, not shouting.
+    final color = filled ? scheme.error : scheme.primary;
+    return Material(
+      color: color.withValues(alpha: filled ? 0.10 : 0.10),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -701,25 +748,25 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? const Color(0xFF22C55E) : Colors.grey;
+    final scheme = Theme.of(context).colorScheme;
+    final color = active ? const Color(0xFF16A34A) : scheme.onSurfaceVariant;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(width: 7),
+          Icon(icon, color: color, size: 14),
+          const SizedBox(width: 6),
           Text(
             label,
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.w700,
-              fontSize: 13,
+              fontSize: 12.5,
             ),
           ),
         ],

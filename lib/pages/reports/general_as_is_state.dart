@@ -1,3 +1,4 @@
+import 'package:billkmotolinkltd/theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -146,36 +147,42 @@ class _GeneralStateReportState extends State<GeneralStateReport> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'General As-Is State',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchWeeks,
           ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : _sortedWeeklyTotals.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.analytics_outlined, size: 80, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text('No weekly data available', style: theme.textTheme.titleLarge),
+                      Icon(Icons.analytics_outlined, size: 56, color: scheme.outline),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No weekly data available',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                   itemCount: _sortedWeeklyTotals.length,
                   itemBuilder: (context, index) {
                     final entry = _sortedWeeklyTotals[index];
@@ -185,121 +192,133 @@ class _GeneralStateReportState extends State<GeneralStateReport> {
     );
   }
 
+  // Series colours come from the theme so they follow light/dark mode.
+  Color _grossColor(ColorScheme s) => s.primary;
+  Color _netColor(ColorScheme s) => s.tertiary;
+  Color _expenseColor(ColorScheme s) => AppTheme.warning;
+
+  // A week is a flat card with a thin spine. Open it for the figures
+  // (a plain ledger, no tiles) followed by three quiet trend lines.
   Widget _buildWeekCard(String weekName, Map<String, dynamic> totals, ThemeData theme, int index) {
-    return Card(
-      elevation: 8,
-      margin: const EdgeInsets.only(bottom: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      color: theme.colorScheme.surface,
-      child: ExpansionTile(
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [
-              theme.colorScheme.primary.withValues(alpha: 0.2),
-              theme.colorScheme.secondary.withValues(alpha: 0.2),
-            ]),
-            shape: BoxShape.circle,
-          ),
-          child: Text('${index + 1}', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+    final scheme = theme.colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: index == 0 ? scheme.primary : scheme.outlineVariant),
+            Expanded(
+              child: Theme(
+                data: theme.copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+                  childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                  shape: const Border(),
+                  collapsedShape: const Border(),
+                  title: Text(
+                    weekName,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Gross ',
+                            style: TextStyle(color: scheme.onSurfaceVariant),
+                          ),
+                          TextSpan(
+                            text: 'KSh ${_formatCurrency(totals['gross'])}',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          if (index == 0)
+                            TextSpan(
+                              text: '   Latest',
+                              style: TextStyle(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                        ],
+                      ),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                  children: [
+                    _buildTotalsSection(totals, theme),
+                    const SizedBox(height: 18),
+                    _buildChartSection('Gross income', totals['grossChart'], theme, _grossColor(scheme)),
+                    const SizedBox(height: 14),
+                    _buildChartSection('Net income', totals['netChart'], theme, _netColor(scheme)),
+                    const SizedBox(height: 14),
+                    _buildChartSection('Expenses', totals['expenseChart'], theme, _expenseColor(scheme)),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-        title: Text(
-          weekName,
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text('KSh ${_formatCurrency(totals['gross'])} total', style: theme.textTheme.bodyMedium),
-        childrenPadding: const EdgeInsets.all(24),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.1),
-        children: [
-          _buildTotalsSection(totals, theme),
-          const SizedBox(height: 24),
-          _buildChartSection("📈 Gross Income", totals["grossChart"], theme, Colors.green.shade500),
-          const SizedBox(height: 20),
-          _buildChartSection("💰 Net Income", totals["netChart"], theme, Colors.blue.shade500),
-          const SizedBox(height: 20),
-          _buildChartSection("💸 Expenses", totals["expenseChart"], theme, Colors.orange.shade500),
-        ],
       ),
     );
   }
 
   Widget _buildTotalsSection(Map<String, dynamic> totals, ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.withValues(alpha: 0.05), Colors.blue.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(Icons.trending_up, color: Colors.green.shade600, size: 28),
-              const SizedBox(width: 12),
-              Text('Weekly Totals', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          // STACKED VERTICALLY - Gross on top, Net below
-          _metricRow("Total Gross", totals["gross"], theme, Colors.green.shade500, Icons.trending_up_rounded),
-          const SizedBox(height: 16),
-          _metricRow("Total Net", totals["net"], theme, Colors.blue.shade500, Icons.account_balance_wallet_rounded),
-          const SizedBox(height: 16),
-          _metricRow("Total Expenses", totals["expense"], theme, Colors.orange.shade500, Icons.receipt_long_rounded),
-        ],
-      ),
+    final scheme = theme.colorScheme;
+
+    return Column(
+      children: [
+        _metricRow('Total gross', totals['gross'], theme, _grossColor(scheme), first: true),
+        _metricRow('Total net', totals['net'], theme, _netColor(scheme)),
+        _metricRow('Total expenses', totals['expense'], theme, _expenseColor(scheme)),
+      ],
     );
   }
 
-  Widget _metricRow(String label, double value, ThemeData theme, Color color, IconData icon) {
+  // One ledger line: colour key, label, figure on the right.
+  Widget _metricRow(String label, double value, ThemeData theme, Color color, {bool first = false}) {
+    final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(vertical: 11),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+        border: Border(
+          top: BorderSide(
+            color: first ? Colors.transparent : scheme.outlineVariant.withValues(alpha: 0.7),
           ),
-        ],
+        ),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-                Text(
-                  'KSh ${_formatCurrency(value)}',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    height: 1.1,
-                  ),
-                ),
-              ],
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Text(
+            'KSh ${_formatCurrency(value)}',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
         ],
@@ -307,92 +326,61 @@ class _GeneralStateReportState extends State<GeneralStateReport> {
     );
   }
 
-Widget _buildChartSection(String title, List<FlSpot> spots, ThemeData theme, Color lineColor) {
-  if (spots.isEmpty) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.analytics_outlined, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 16),
-          Text('No data for $title', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
+  Widget _buildChartSection(String title, List<FlSpot> spots, ThemeData theme, Color lineColor) {
+    final scheme = theme.colorScheme;
 
-  // Adaptive colors based on theme brightness
-  final isDark = theme.brightness == Brightness.dark;
-  final gridColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1);
-  final borderColor = isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2);
-  final bgColor = isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.9);
+    if (spots.isEmpty) {
+      return Text(
+        'No data for ${title.toLowerCase()}',
+        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+      );
+    }
 
-  return Container(
-    padding: const EdgeInsets.all(20),
-    decoration: BoxDecoration(
-      color: bgColor,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: borderColor),
-    ),
-    child: Column(
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: lineColor.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.show_chart, color: lineColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: lineColor)),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Container(
-          height: 220,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+            color: lineColor,
           ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
           child: LineChart(
             LineChartData(
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
+                horizontalInterval: null,
                 getDrawingHorizontalLine: (value) => FlLine(
-                  color: gridColor,
+                  color: scheme.outlineVariant.withValues(alpha: 0.8),
                   strokeWidth: 1,
-                  dashArray: [5, 5],
                 ),
               ),
               titlesData: const FlTitlesData(show: false),
-              borderData: FlBorderData(show: true),
+              borderData: FlBorderData(show: false),
               lineBarsData: [
                 LineChartBarData(
                   isCurved: true,
-                  curveSmoothness: 0.4,
+                  curveSmoothness: 0.25,
                   spots: spots,
-                  barWidth: 4,
+                  barWidth: 2,
                   color: lineColor,
-                  shadow: Shadow(
-                    color: lineColor.withValues(alpha: 0.4),
-                    blurRadius: 8,
-                  ),
+                  // Dots only when there are few points; many points read as noise.
                   dotData: FlDotData(
-                    show: true,
+                    show: spots.length <= 8,
                     getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                      radius: 6,
+                      radius: 3,
                       color: lineColor,
-                      strokeWidth: 3,
-                      strokeColor: isDark ? Colors.black : Colors.white,
+                      strokeWidth: 1.5,
+                      strokeColor: isDark ? scheme.surface : Colors.white,
                     ),
                   ),
                   belowBarData: BarAreaData(
@@ -401,7 +389,7 @@ Widget _buildChartSection(String title, List<FlSpot> spots, ThemeData theme, Col
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        lineColor.withValues(alpha: isDark ? 0.3 : 0.4),
+                        lineColor.withValues(alpha: isDark ? 0.22 : 0.16),
                         lineColor.withValues(alpha: 0.0),
                       ],
                     ),
@@ -412,10 +400,6 @@ Widget _buildChartSection(String title, List<FlSpot> spots, ThemeData theme, Col
           ),
         ),
       ],
-    ),
-  );
-}
-
-
-
+    );
+  }
 }

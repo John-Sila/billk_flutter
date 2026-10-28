@@ -13,130 +13,93 @@ class Reports extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    Widget tile({
+      required IconData icon,
+      required String title,
+      required String subtitle,
+      required Widget page,
+    }) {
+      return _ReportTile(
+        icon: icon,
+        title: title,
+        subtitle: subtitle,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => page),
+        ),
+      );
+    }
+
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: [
-        const Text(
-          'Reports Center',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Access your business analytics, financial summaries, and performance metrics here.',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-        const SizedBox(height: 30),
-
-        // Weekly Analysis Report
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.receipt_long, color: Colors.teal),
-            title: const Text('Weekly Analysis Report'),
-            subtitle: const Text('View total rider revenue trends for the week.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WeeklyAnalysisReport()),
-              );
-            },
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 4, 6, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Reports Center',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Analytics, financial summaries and performance metrics.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
 
-        // Rider Daily Statistics
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.people, color: Colors.teal),
-            title: const Text('Rider Daily Statistics'),
-            subtitle: const Text('View rider engagement insights.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RiderDailyStatistics()),
-              );
-            },
-          ),
+        tile(
+          icon: Icons.receipt_long_rounded,
+          title: 'Weekly Analysis Report',
+          subtitle: 'View total rider revenue trends for the week.',
+          page: const WeeklyAnalysisReport(),
         ),
-
-        // Human Resource
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.restaurant_menu_rounded, color: Colors.teal),
-            title: const Text('Human Resource'),
-            subtitle: const Text('See reports that await action.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const HumanResourceReports()),
-              );
-            },
-          ),
+        tile(
+          icon: Icons.people_alt_rounded,
+          title: 'Rider Daily Statistics',
+          subtitle: 'View rider engagement insights.',
+          page: const RiderDailyStatistics(),
         ),
-
-        // Daily As-Is State
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.pie_chart_rounded, color: Colors.teal),
-            title: const Text('This Week As-Is State'),
-            subtitle: const Text('See how the company is doing this week.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ThisWeekStateReport()),
-              );
-            },
-          ),
+        tile(
+          icon: Icons.assignment_late_rounded,
+          title: 'Human Resource',
+          subtitle: 'See reports that await action.',
+          page: const HumanResourceReports(),
         ),
-
-        // General As-Is State
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.bar_chart_rounded, color: Colors.teal),
-            title: const Text('General As-Is State'),
-            subtitle: const Text('See how the company has been doing over the weeks.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const GeneralStateReport()),
-              );
-            },
-          ),
+        tile(
+          icon: Icons.pie_chart_rounded,
+          title: 'This Week As-Is State',
+          subtitle: 'See how the company is doing this week.',
+          page: const ThisWeekStateReport(),
         ),
-
-        // Absenteeism
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.event_busy_rounded, color: Colors.teal),
-            title: const Text('Attendance Rota'),
-            subtitle: const Text('See which riders clocked out each day, by week.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const Absenteeism()),
-              );
-            },
-          ),
+        tile(
+          icon: Icons.bar_chart_rounded,
+          title: 'General As-Is State',
+          subtitle: 'See how the company has been doing over the weeks.',
+          page: const GeneralStateReport(),
         ),
-
-        // Wage Evaluator
-        Card(
-          elevation: 2,
-          child: ListTile(
-            leading: const Icon(Icons.attach_money_rounded, color: Colors.teal),
-            title: const Text('Wage Evaluator'),
-            subtitle: const Text('Analyze and evaluate employee wages.'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const WageEvaluatorScreen()),
-              );
-            },
-          ),
+        tile(
+          icon: Icons.event_busy_rounded,
+          title: 'Attendance Rota',
+          subtitle: 'See which riders clocked out each day, by week.',
+          page: const Absenteeism(),
+        ),
+        tile(
+          icon: Icons.payments_rounded,
+          title: 'Wage Evaluator',
+          subtitle: 'Analyze and evaluate employee wages.',
+          page: const WageEvaluatorScreen(),
         ),
 
         // non variable docs
@@ -154,11 +117,72 @@ class Reports extends StatelessWidget {
         //     },
         //   ),
         // ),
-
-
-
-        
       ],
+    );
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ReportTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: scheme.onPrimaryContainer, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: scheme.outline),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:battery_plus/battery_plus.dart';
 import 'package:billkmotolinkltd/services/notifier.dart';
+import 'package:billkmotolinkltd/theme/app_theme.dart';
 import 'package:billkmotolinkltd/services/toast_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -38,6 +39,10 @@ class _DashboardState extends State<Dashboard> {
   bool _showMemoOverlay = false;
   Map<String, dynamic>? _currentMemo;
   Timer? _expiredEventsTimer;
+
+  static const Color _heroTop = Color(0xFF0E5F57);
+  static const Color _heroBottom = Color(0xFF06302C);
+  static const double _heroExpanded = 250;
 
 
 
@@ -751,7 +756,7 @@ class _DashboardState extends State<Dashboard> {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Stack(
         children: [
           RefreshIndicator(
@@ -760,300 +765,208 @@ class _DashboardState extends State<Dashboard> {
             backgroundColor: theme.colorScheme.surface,
             child: CustomScrollView(
               slivers: [
-                // ✅ PREMIUM SLIVERAPPBAR
+                // Hero: flat brand gradient, greeting + name, collapses to a slim bar
                 SliverAppBar(
-                  expandedHeight: 280,
+                  expandedHeight: _heroExpanded,
                   floating: true,
                   snap: true,
                   pinned: true,
-                  collapsedHeight: kToolbarHeight + 8,
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: theme.colorScheme.onPrimary,
+                  collapsedHeight: kToolbarHeight,
+                  automaticallyImplyLeading: false,
+                  backgroundColor: _heroBottom,
+                  surfaceTintColor: Colors.transparent,
+                  foregroundColor: Colors.white,
                   elevation: 0,
-                  shadowColor: Colors.transparent,
+                  scrolledUnderElevation: 0,
+                  flexibleSpace: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final t = ((_heroExpanded - constraints.maxHeight) /
+                              (_heroExpanded - kToolbarHeight))
+                          .clamp(0.0, 1.0);
+                      final expandedOpacity = (1 - t * 1.8).clamp(0.0, 1.0);
+                      final collapsedOpacity = ((t - 0.6) / 0.4).clamp(0.0, 1.0);
+                      final verified = _toBool(userData['isVerified']);
 
-                  // TITLE
-                  title: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.primaryContainer,
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.shadow.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.waving_hand_rounded,
-                          color: theme.colorScheme.onPrimary,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Welcome Back',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onPrimary,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // GORGEOUS FLEXIBLE SPACE
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            theme.colorScheme.primary,
-                            theme.colorScheme.primaryContainer,
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(32),
-                          bottomRight: Radius.circular(32),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.shadow.withValues(alpha: isDark ? 0.4 : 0.15),
-                            blurRadius: 30,
-                            offset: const Offset(0, 12),
-                            spreadRadius: -8,
-                          ),
-                        ],
-                      ),
-                      child: SafeArea(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // ANIMATED AVATAR
-                            Hero(
-                              tag: 'user_avatar',
-                              child: Container(
-                                width: 90,
-                                height: 90,
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      theme.colorScheme.onPrimary.withValues(alpha: 0.3),
-                                      theme.colorScheme.onPrimary.withValues(alpha: 0.1),
-                                    ],
-                                  ),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: theme.colorScheme.onPrimary.withValues(alpha: 0.4),
-                                    width: 3,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: theme.colorScheme.shadow.withValues(alpha: 0.2),
-                                      blurRadius: 30,
-                                      offset: const Offset(0, 12),
-                                    ),
-                                  ],
-                                ),
-                                child: CircleAvatar(
-                                  radius: 42,
-                                  backgroundColor: theme.colorScheme.primaryContainer,
-                                  child: Text(
-                                    userName.isNotEmpty ? userName[0].toUpperCase() : '?',
-                                    style: theme.textTheme.headlineMedium?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      color: theme.colorScheme.onPrimaryContainer,
-                                      shadows: [
-                                        Shadow(
-                                          offset: const Offset(0, 2),
-                                          blurRadius: 8,
-                                          color: theme.colorScheme.shadow.withValues(alpha: 0.3),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [_heroTop, _heroBottom],
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // TIME-BASED GREETING
-                            ShaderMask(
-                              shaderCallback: (bounds) => RadialGradient(
-                                colors: [
-                                  theme.colorScheme.onPrimary,
-                                  theme.colorScheme.onPrimary.withValues(alpha: 0.8),
-                                ],
-                              ).createShader(bounds),
-                              child: Text(
-                                greeting,
-                                style: theme.textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: theme.colorScheme.onPrimary,
-                                  shadows: [
-                                    Shadow(
-                                      offset: const Offset(0, 4),
-                                      blurRadius: 16,
-                                      color: theme.colorScheme.shadow.withValues(alpha: 0.4),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                // Username with gradient
-                                ShaderMask(
-                                  shaderCallback: (bounds) => LinearGradient(
-                                    colors: [
-                                      theme.colorScheme.onPrimary,
-                                      theme.colorScheme.onPrimary.withValues(alpha: 0.8),
-                                    ],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                  ).createShader(bounds),
-                                  child: Text(
-                                    userName,
-                                    style: theme.textTheme.headlineLarge?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      color: theme.colorScheme.onPrimary,
-                                      height: 1.1,
-                                      shadows: [
-                                        Shadow(
-                                          offset: const Offset(0, 4),
-                                          blurRadius: 20,
-                                          color: theme.colorScheme.shadow.withValues(alpha: 0.4),
-                                        ),
-                                        Shadow(
-                                          offset: const Offset(2, 2),
-                                          blurRadius: 12,
-                                          color: theme.colorScheme.shadow.withValues(alpha: 0.2),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(width: 6),
-
-                                // Badge
-                                Transform.translate(
-                                  offset: const Offset(0, -3),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(3),
-                                    decoration: BoxDecoration(
-                                      gradient: _toBool(userData['isVerified'])
-                                          ? LinearGradient(
-                                              colors: [
-                                                theme.colorScheme.tertiary,
-                                                theme.colorScheme.tertiaryContainer,
-                                              ],
-                                            )
-                                          : LinearGradient(
-                                              colors: [
-                                                theme.colorScheme.outline,
-                                                theme.colorScheme.outlineVariant,
-                                              ],
-                                            ),
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: (_toBool(userData['isVerified'])
-                                                  ? theme.colorScheme.tertiary
-                                                  : theme.colorScheme.outline)
-                                              .withValues(alpha: 0.4),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      _toBool(userData['isVerified'])
-                                          ? Icons.verified_rounded
-                                          : Icons.warning_rounded,
-                                      color: _toBool(userData['isVerified'])
-                                          ? theme.colorScheme.onTertiary
-                                          : theme.colorScheme.onSurfaceVariant,
-                                      size: 16,
-                                      shadows: [
-                                        Shadow(
-                                          offset: const Offset(0, 1),
-                                          blurRadius: 2,
-                                          color: theme.colorScheme.shadow.withValues(alpha: 0.2),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            // RANK BADGE
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              margin: const EdgeInsets.only(top: 15),
+                          ),
+                          Positioned(
+                            top: -50,
+                            right: -40,
+                            child: Container(
+                              width: 190,
+                              height: 190,
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    theme.colorScheme.onPrimary.withValues(alpha: 0.2),
-                                    theme.colorScheme.onPrimary.withValues(alpha: 0.1),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: theme.colorScheme.onPrimary.withValues(alpha: 0.3),
-                                ),
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: 0.05 * expandedOpacity),
                               ),
-                              child: Text(
-                                userRank.toUpperCase(),
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: theme.colorScheme.onPrimary,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2,
+                            ),
+                          ),
+
+                          // Expanded content
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 32,
+                            child: Opacity(
+                              opacity: expandedOpacity,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Hero(
+                                    tag: 'user_avatar',
+                                    child: Container(
+                                      width: 76,
+                                      height: 76,
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withValues(alpha: 0.22),
+                                      ),
+                                      child: CircleAvatar(
+                                        backgroundColor: theme.colorScheme.primaryContainer,
+                                        child: Text(
+                                          userName.isNotEmpty ? userName[0].toUpperCase() : '?',
+                                          style: TextStyle(
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w800,
+                                            color: theme.colorScheme.onPrimaryContainer,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    greeting,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.72),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            userName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: -0.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Icon(
+                                          verified ? Icons.verified_rounded : Icons.warning_amber_rounded,
+                                          size: 19,
+                                          color: verified ? const Color(0xFF7CE7C8) : const Color(0xFFFFC857),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      userRank.toUpperCase(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 1.1,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Collapsed: just the name
+                          Positioned(
+                            left: 20,
+                            right: 20,
+                            top: 0,
+                            height: kToolbarHeight,
+                            child: Opacity(
+                              opacity: collapsedOpacity,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '$greeting, ${userName.split(' ').first}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
+                          ),
+
+                          // Rounded lip into the page
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: -1,
+                            child: Opacity(
+                              opacity: 1 - t,
+                              child: Container(
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: theme.scaffoldBackgroundColor,
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
 
                 // CONTENT
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                     child: Column(
                       children: [
                         // Events Section
                         if (_events.isNotEmpty) ...[
                           _buildEventsSection(theme),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
                         ],
 
                         // Polls Section
                         if (_polls.isNotEmpty) ...[
                           _buildPollsSection(theme),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
                         ],
 
                         // Stats Cards
@@ -1085,147 +998,150 @@ class _DashboardState extends State<Dashboard> {
     return 'Good Night';
   }
 
-  Widget _buildEventsSection(ThemeData theme) {
-    return Card(
-      elevation: 8,
-      shadowColor: theme.colorScheme.primary.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surfaceContainerHighest,
-            ],
+  Widget _sectionLabel(ThemeData theme, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Section Header
-            Row(
+      ),
+    );
+  }
+
+  /// Flat card that stacks rows separated by hairlines.
+  Widget _ruledCard(ThemeData theme, List<Widget> rows) {
+    final scheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0) Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.7)),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventsSection(ThemeData theme) {
+    final scheme = theme.colorScheme;
+    final rows = <Widget>[];
+
+    for (final doc in _events) {
+      final data = doc.data();
+      final ts = data['event_time'] as Timestamp?;
+      if (ts == null) continue;
+
+      final dt = ts.toDate();
+      final isFuture = dt.isAfter(DateTime.now());
+      final accent = isFuture ? scheme.primary : scheme.outline;
+
+      rows.add(
+        InkWell(
+          onTap: () => _showEventDetails(context, doc, theme),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(Icons.event, color: theme.colorScheme.primary, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Upcoming Events (${_events.length})',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ) ?? const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            
-            // Events List - Now clickable
-            ..._events.map((doc) {
-              final data = doc.data();
-              final ts = data['event_time'] as Timestamp?;
-              if (ts == null) return const SizedBox.shrink();
-              
-              final dt = ts.toDate();
-              final isFuture = dt.isAfter(DateTime.now());
-              
-              return GestureDetector(
-                onTap: () => _showEventDetails(context, doc, theme),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isFuture 
-                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                      : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isFuture 
-                        ? theme.colorScheme.primary.withValues(alpha: 0.2)
-                        : theme.colorScheme.outlineVariant,
-                    ),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                // Date block
+                SizedBox(
+                  width: 44,
+                  child: Column(
                     children: [
-                      // Event Icon
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: isFuture ? Colors.green : Colors.grey,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          isFuture ? Icons.schedule : Icons.history,
-                          color: Colors.white,
-                          size: 20,
+                      Text(
+                        DateFormat('dd').format(dt),
+                        style: TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          height: 1.05,
+                          color: accent,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      
-                      // Event Preview Content
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                data['title']?.toString() ?? 'No Title',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ) ?? const TextStyle(fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                data['description']?.toString() ?? 'No description',
-                                style: theme.textTheme.bodyMedium ?? const TextStyle(),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
+                      Text(
+                        DateFormat('MMM').format(dt).toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.9,
+                          color: scheme.onSurfaceVariant,
                         ),
-                      ),
-                      
-                      // Date + Arrow
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            DateFormat('dd MMM').format(dt),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary,
-                            ) ?? const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            DateFormat('HH:mm').format(dt),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                            ) ?? const TextStyle(),
-                          ),
-                          const SizedBox(height: 4),
-                          Icon(Icons.arrow_forward_ios, size: 16, color: theme.colorScheme.primary),
-                        ],
                       ),
                     ],
                   ),
                 ),
-              );
-            }),
-          ],
+                Container(
+                  width: 1,
+                  height: 36,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: scheme.outlineVariant,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        data['title']?.toString() ?? 'No Title',
+                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        data['description']?.toString() ?? 'No description',
+                        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      DateFormat('HH:mm').format(dt),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Icon(Icons.chevron_right_rounded, size: 18, color: scheme.outline),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
-      ),
+      );
+    }
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel(theme, 'Upcoming events (${_events.length})'),
+        _ruledCard(theme, rows),
+      ],
     );
   }
 
@@ -1245,7 +1161,7 @@ class _DashboardState extends State<Dashboard> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: isFuture ? Colors.green : Colors.grey,
+                color: isFuture ? AppTheme.success : theme.colorScheme.outline,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -1327,102 +1243,70 @@ class _DashboardState extends State<Dashboard> {
   }
 
   Widget _buildPollsSection(ThemeData theme) {
-    return Card(
-      elevation: 8,
-      shadowColor: theme.colorScheme.secondary.withValues(alpha: 0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surfaceContainerHighest,
-            ],
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(Icons.poll, color: theme.colorScheme.secondary, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  'Polls (${_polls.length})',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ) ?? const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ..._polls.map((doc) {
-              final data = doc.data();
-              final deadlineTs = data['deadline'] as Timestamp?;
-              if (deadlineTs == null) return const SizedBox.shrink();
-              
-              final deadline = deadlineTs.toDate();
-              final expired = deadline.isBefore(DateTime.now());
-              
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: expired 
-                    ? theme.colorScheme.errorContainer
-                    : theme.colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: expired 
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.secondary,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
+    final scheme = theme.colorScheme;
+    final rows = <Widget>[];
+
+    for (final doc in _polls) {
+      final data = doc.data();
+      final deadlineTs = data['deadline'] as Timestamp?;
+      if (deadlineTs == null) continue;
+
+      final deadline = deadlineTs.toDate();
+      final expired = deadline.isBefore(DateTime.now());
+      final tone = expired ? scheme.error : AppTheme.success;
+
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      expired ? Icons.schedule_send : Icons.how_to_vote,
-                      color: expired ? theme.colorScheme.error : theme.colorScheme.secondary,
+                    Text(
+                      data['title']?.toString() ?? 'No Title',
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data['title']?.toString() ?? 'No Title',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ) ?? const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            'Deadline: ${DateFormat('dd MMM yyyy').format(deadline)}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: expired 
-                                ? theme.colorScheme.error
-                                : theme.colorScheme.onSecondaryContainer,
-                            ) ?? const TextStyle(),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Deadline: ${DateFormat('dd MMM yyyy').format(deadline)}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                     ),
                   ],
                 ),
-              );
-            }),
-          ],
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  expired ? 'CLOSED' : 'OPEN',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.9,
+                    color: tone,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel(theme, 'Polls (${_polls.length})'),
+        _ruledCard(theme, rows),
+      ],
     );
   }
 
@@ -1443,6 +1327,7 @@ class _DashboardState extends State<Dashboard> {
 
   Widget _buildStatsCards(ThemeData theme, Map<String, dynamic> user) {
     final isDark = theme.brightness == Brightness.dark;
+    final scheme = theme.colorScheme;
     final String rank = user['userRank']?.toString() ?? '';
 
     // 2. Admin Check
@@ -1450,509 +1335,228 @@ class _DashboardState extends State<Dashboard> {
       return _buildAdminDashboard(theme);
     }
 
-    final stats = [
-      {'label': 'Daily Target', 'value': _formatNumber(user['dailyTarget']), 'color': Colors.blue},
-      {'label': 'Sunday Target', 'value': _formatNumber(user['sundayTarget']), 'color': Colors.orange},
-      {'label': 'Pending Amount', 'value': _formatNumber(user['pendingAmount']), 'color': Colors.red},
-      {'label': 'In-App Balance', 'value': _formatNumber(user['currentInAppBalance']), 'color': Colors.green},
-      {'label': 'Bike', 'value': (user['currentBike'] ?? 'N/A').toString(), 'color': Colors.purple},
-      {'label': 'Hours', 'value': _formatHours(user), 'color': Colors.teal},
+    final pending = user['pendingAmount'];
+    final pendingNum = pending is num ? pending : num.tryParse('${pending ?? 0}') ?? 0;
+
+    // (label, value, optional emphasis colour)
+    final List<List<dynamic>> figures = [
+      ['Daily Target', _formatNumber(user['dailyTarget']), null],
+      ['Sunday Target', _formatNumber(user['sundayTarget']), null],
+      ['Pending Amount', _formatNumber(user['pendingAmount']), pendingNum > 0 ? scheme.error : null],
+      ['In-App Balance', _formatNumber(user['currentInAppBalance']), scheme.primary],
+      ['Bike', (user['currentBike'] ?? 'N/A').toString(), null],
+      ['Hours', _formatHours(user), null],
+    ];
+
+    Widget cell(List<dynamic> f, {required bool right}) {
+      final Color? emphasis = f[2] as Color?;
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          decoration: BoxDecoration(
+            border: right
+                ? Border(left: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)))
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                f[0] as String,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  f[1] as String,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: emphasis ?? scheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final figureRows = <Widget>[
+      for (int i = 0; i < figures.length; i += 2)
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              cell(figures[i], right: false),
+              cell(figures[i + 1], right: true),
+            ],
+          ),
+        ),
     ];
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ASSIGNED BIKE — big, unmissable banner
         _buildAssignedBikeBanner(theme, user, isDark),
-        const SizedBox(height: 24),
-        
-        // BEAUTIFIED HEADER
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                theme.colorScheme.primary.withValues(alpha: 0.1),
-                theme.colorScheme.primaryContainer,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: theme.colorScheme.primary.withValues(alpha: 0.2),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [theme.colorScheme.primary, theme.colorScheme.primary.withValues(alpha: 0.8)],
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Icon(Icons.analytics_outlined, 
-                  color: Colors.white, 
-                  size: 28,
-                  shadows: const [
-                    Shadow(color: Colors.black26, offset: Offset(0, 2), blurRadius: 4),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Stats',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    Text(
-                      'Performance overview',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: (theme.colorScheme.onPrimaryContainer).withValues(alpha: 0.8),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
-        // PREMIUM STATS GRID
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.1,
-            mainAxisExtent: 124,
-          ),
-          itemCount: stats.length,
-          itemBuilder: (context, index) {
-            final stat = stats[index];
-            final color = stat['color'] as Color?;
-            
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    (color ?? theme.colorScheme.primary).withValues(alpha: 0.15),
-                    (color ?? theme.colorScheme.primary).withValues(alpha: 0.05),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: (color ?? theme.colorScheme.primary).withValues(alpha: isDark ? 0.4 : 0.2),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (color ?? theme.colorScheme.primary).withValues(alpha: 0.2),
-                    blurRadius: isDark ? 16 : 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: () {}, // Add tap action if needed
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.trending_up_rounded,
-                          color: color ?? theme.colorScheme.primary,
-                          size: 28,
-                          shadows: [
-                            Shadow(
-                              color: (color ?? theme.colorScheme.primary).withValues(alpha: 0.3),
-                              offset: const Offset(0, 2),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          stat['value'] as String,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: theme.colorScheme.onSurface,
-                            height: 1.1,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
-                                offset: const Offset(0, 1),
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          stat['label'] as String,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 24),
+        _sectionLabel(theme, 'Your numbers'),
+        _ruledCard(theme, figureRows),
+        const SizedBox(height: 20),
 
-        
-
-        // ENHANCED STATUS ROW
+        _sectionLabel(theme, 'Status'),
         _buildStatusRow(theme, user, isDark),
       ],
     );
   }
 
-Widget _buildAssignedBikeBanner(ThemeData theme, Map<String, dynamic> user, bool isDark) {
-  final String? bikeName = (user['assignedBikeName'] as String?)?.trim().isEmpty ?? true
-      ? null
-      : user['assignedBikeName'] as String;
-  final bool hasBike = bikeName != null;
+  Widget _buildAssignedBikeBanner(ThemeData theme, Map<String, dynamic> user, bool isDark) {
+    final scheme = theme.colorScheme;
+    final String? bikeName = (user['assignedBikeName'] as String?)?.trim().isEmpty ?? true
+        ? null
+        : user['assignedBikeName'] as String;
+    final bool hasBike = bikeName != null;
 
-  // 'day' | 'night' | null (not set — e.g. assigned before shifts existed)
-  final String? rawShift = (user['assignedShift'] as String?)?.trim().toLowerCase();
-  final String? shift = (rawShift == 'day' || rawShift == 'night') ? rawShift : null;
+    // 'day' | 'night' | null (not set - e.g. assigned before shifts existed)
+    final String? rawShift = (user['assignedShift'] as String?)?.trim().toLowerCase();
+    final String? shift = (rawShift == 'day' || rawShift == 'night') ? rawShift : null;
 
-  // Inner Container Gradient Colors (Theme Responsive)
-  final List<Color> gradientColors = hasBike
-      ? (isDark
-          ? [
-              const Color(0xFF0F2027),
-              const Color(0xFF203A43),
-              const Color(0xFF00796B),
-            ]
-          : [
-              theme.colorScheme.primaryContainer,
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.85),
-              theme.colorScheme.tertiaryContainer,
-            ])
-      : [
-          theme.colorScheme.surfaceContainerHighest,
-          theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
-        ];
+    final Color spine = hasBike ? scheme.primary : scheme.error;
 
-  // Dynamic Text & Element Colors for Accessibility Across Themes
-  final Color titleColor = hasBike
-      ? (isDark ? Colors.white : theme.colorScheme.onPrimaryContainer)
-      : theme.colorScheme.onSurface;
-
-  final Color subtitleColor = hasBike
-      ? (isDark
-          ? Colors.white.withValues(alpha: 0.85)
-          : theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8))
-      : theme.colorScheme.onSurfaceVariant;
-
-  final Color bodyTextColor = hasBike
-      ? (isDark
-          ? Colors.white.withValues(alpha: 0.75)
-          : theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.7))
-      : theme.colorScheme.onSurfaceVariant;
-
-  final Color iconColor = hasBike
-      ? (isDark ? Colors.white : theme.colorScheme.primary)
-      : theme.colorScheme.primary;
-
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(4),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(28),
-      gradient: hasBike
-          ? LinearGradient(
-              colors: isDark
-                  ? [
-                      theme.colorScheme.primary.withValues(alpha: 0.9),
-                      const Color(0xFF00C6A2),
-                    ]
-                  : [
-                      theme.colorScheme.primary.withValues(alpha: 0.4),
-                      theme.colorScheme.tertiary.withValues(alpha: 0.4),
-                    ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-          : null,
-      boxShadow: hasBike
-          ? [
-              BoxShadow(
-                color: theme.colorScheme.primary.withValues(alpha: isDark ? 0.35 : 0.15),
-                blurRadius: 28,
-                offset: const Offset(0, 12),
-              ),
-            ]
-          : null,
-    ),
-    child: Container(
+    return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: gradientColors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: hasBike
-            ? (isDark
-                ? null
-                : Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                    width: 1,
-                  ))
-            : Border.all(
-                color: theme.colorScheme.outlineVariant,
-                width: 1.5,
-              ),
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Decorative faint bike silhouette in the background for depth
-          Positioned(
-            right: -18,
-            bottom: -22,
-            child: Icon(
-              Icons.two_wheeler_rounded,
-              size: 140,
-              color: hasBike
-                  ? (isDark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : theme.colorScheme.primary.withValues(alpha: 0.08))
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.04),
-            ),
-          ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: hasBike
-                      ? LinearGradient(
-                          colors: isDark
-                              ? [
-                                  Colors.white.withValues(alpha: 0.25),
-                                  Colors.white.withValues(alpha: 0.08),
-                                ]
-                              : [
-                                  theme.colorScheme.surface.withValues(alpha: 0.9),
-                                  theme.colorScheme.surface.withValues(alpha: 0.6),
-                                ],
-                        )
-                      : null,
-                  color: hasBike ? null : theme.colorScheme.primary.withValues(alpha: 0.12),
-                  border: hasBike
-                      ? Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.4)
-                              : theme.colorScheme.primary.withValues(alpha: 0.2),
-                          width: 1.5,
-                        )
-                      : null,
-                ),
-                child: Icon(
-                  hasBike ? Icons.electric_bike_rounded : Icons.report_gmailerrorred_rounded,
-                  color: iconColor,
-                  size: 32,
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: spine),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: hasBike
-                                ? (isDark ? const Color(0xFF69F0AE) : const Color(0xFF00875A))
-                                : theme.colorScheme.error,
-                            boxShadow: hasBike
-                                ? [
-                                    BoxShadow(
-                                      color: (isDark
-                                              ? const Color(0xFF69F0AE)
-                                              : const Color(0xFF00875A))
-                                          .withValues(alpha: 0.6),
-                                      blurRadius: 8,
-                                      spreadRadius: 1,
-                                    ),
-                                  ]
-                                : null,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hasBike ? 'YOUR ASSIGNED BIKE' : 'NO BIKE ASSIGNED',
+                            style: TextStyle(
+                              color: hasBike ? scheme.primary : scheme.error,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                              letterSpacing: 1.2,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          hasBike ? 'YOUR ASSIGNED BIKE' : 'NO BIKE ASSIGNED',
-                          style: TextStyle(
-                            color: subtitleColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            letterSpacing: 1.3,
+                          const SizedBox(height: 6),
+                          Text(
+                            bikeName ?? 'Contact your admin to get a bike assigned',
+                            style: (hasBike
+                                    ? theme.textTheme.headlineSmall
+                                    : theme.textTheme.titleMedium)
+                                ?.copyWith(
+                              color: scheme.onSurface,
+                              fontWeight: FontWeight.w800,
+                              height: 1.15,
+                              letterSpacing: -0.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      bikeName ?? 'Contact your admin to get a bike assigned',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        color: titleColor,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
+                          if (hasBike) ...[
+                            const SizedBox(height: 10),
+                            _buildShiftPill(shift, theme, isDark),
+                            const SizedBox(height: 8),
+                            Text(
+                              shift == null
+                                  ? 'Ask your admin to set your shift'
+                                  : 'Use this bike when you clock in',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (hasBike) ...[
-                      const SizedBox(height: 10),
-                      _buildShiftPill(shift, theme, isDark),
-                      const SizedBox(height: 8),
-                      Text(
-                        shift == null
-                            ? 'Ask your admin to set your shift'
-                            : 'Use this bike when you clock in',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: bodyTextColor,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    const SizedBox(width: 12),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: spine.withValues(alpha: isDark ? 0.18 : 0.10),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                    ],
+                      child: Icon(
+                        hasBike ? Icons.electric_bike_rounded : Icons.report_gmailerrorred_rounded,
+                        color: spine,
+                        size: 28,
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
+    final scheme = theme.colorScheme;
+    final bool isSet = shift != null;
+    final bool isNight = shift == 'night';
+
+    final Color tone = !isSet
+        ? scheme.outline
+        : (isNight ? scheme.tertiary : AppTheme.warning);
+    final IconData icon = !isSet
+        ? Icons.help_outline_rounded
+        : (isNight ? Icons.nightlight_round : Icons.wb_sunny_rounded);
+    final String label = !isSet ? 'SHIFT NOT SET' : (isNight ? 'NIGHT SHIFT' : 'DAY SHIFT');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: isDark ? 0.18 : 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: tone),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: tone,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.9,
+            ),
           ),
         ],
       ),
-    ),
-  );
-}
-
-Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
-  final bool isSet = shift != null;
-  final bool isNight = shift == 'night';
-
-  Color pillBg;
-  Color contentColor;
-  IconData icon;
-  String label;
-
-  if (!isSet) {
-    icon = Icons.help_outline_rounded;
-    label = 'SHIFT NOT SET';
-    if (isDark) {
-      pillBg = Colors.white.withValues(alpha: 0.14);
-      contentColor = const Color(0xFFFFB74D);
-    } else {
-      pillBg = const Color(0xFFFFE0B2);
-      contentColor = const Color(0xFF8C3D00);
-    }
-  } else if (isNight) {
-    icon = Icons.nightlight_round;
-    label = 'NIGHT SHIFT';
-    if (isDark) {
-      pillBg = Colors.white.withValues(alpha: 0.14);
-      contentColor = const Color(0xFF9FA8DA);
-    } else {
-      pillBg = const Color(0xFFE1F5FE);
-      contentColor = const Color(0xFF01579B);
-    }
-  } else {
-    // Day Shift
-    icon = Icons.wb_sunny_rounded;
-    label = 'DAY SHIFT';
-    if (isDark) {
-      pillBg = Colors.white.withValues(alpha: 0.14);
-      contentColor = const Color(0xFFFFD54F);
-    } else {
-      pillBg = const Color(0xFFFFF3C4);
-      contentColor = const Color(0xFF7A4B00);
-    }
+    );
   }
-
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(
-      color: pillBg,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(
-        color: contentColor.withValues(alpha: isDark ? 0.7 : 0.4),
-        width: 1.2,
-      ),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: contentColor),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            color: contentColor,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-          ),
-        ),
-      ],
-    ),
-  );
-}
 
   Widget _buildAdminDashboard(ThemeData theme) {
     return StreamBuilder<DocumentSnapshot>(
@@ -1967,14 +1571,14 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
         
         final data = snapshot.data!.data() as Map<String, dynamic>? ?? {};
         return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 12),
+          padding: EdgeInsets.zero,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildPerformanceSection(data['monthly_incomes'] ?? {}, theme, true),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               _buildPerformanceSection(data['annual_incomes'] ?? {}, theme, false),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               _buildSystemOverview(data, theme),
             ],
           ),
@@ -2022,11 +1626,9 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
     final sortedEntries = _sortIncomeData(source);
     
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16), // Reduced padding
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2037,7 +1639,7 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
               accentColor: isMonthly ? Colors.blue : Colors.deepPurple,
               theme: theme,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             ...sortedEntries.map((entry) => _buildIncomeExpansionTile(entry, theme)),
           ],
         ),
@@ -2060,19 +1662,19 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
     final totals = _calculateRiderTotals(ridersMap);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: theme.cardColor.withValues(alpha: 0.7),
+        color: theme.colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5), width: 1),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
       ),
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
           title: Row(
             children: [
               Expanded(
@@ -2103,10 +1705,10 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
     final riderData = riderEntry.value as Map<String, dynamic>;
     
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 2),
       child: ListTile(
         dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 2),
         minLeadingWidth: 40,
         leading: CircleAvatar(
           radius: 16, // Smaller avatar
@@ -2157,11 +1759,9 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
     final bikes = data['bikes'] as Map<String, dynamic>? ?? {};
     
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2172,15 +1772,15 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
               accentColor: Colors.teal,
               theme: theme,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
 
             GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: MediaQuery.of(context).size.width > 700 ? 2 : 1,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 2.2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.6,
               children: [
                 _buildCompactMetricCard(
                   'Bikes',
@@ -2192,9 +1792,9 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
               ],
             ),
 
-            const SizedBox(height: 20),
-            const Divider(),
             const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
 
             _buildCompactSectionHeader(
               title: 'Bike Status',
@@ -2321,23 +1921,25 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
 
   Widget _buildCompactMetricCard(String label, String value, IconData icon, Color color) {
     return Card(
+      margin: EdgeInsets.zero,
+      color: Theme.of(context).colorScheme.surfaceContainer,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 20),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -2435,8 +2037,8 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
       decoration: BoxDecoration(
         color: tint.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(12),
@@ -2672,6 +2274,7 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
   }
 
   Widget _buildStatusRow(ThemeData theme, Map<String, dynamic> user, bool isDark) {
+    final scheme = theme.colorScheme;
     final statuses = [
       {'label': 'Clocked In', 'value': _toBool(user['isClockedIn']), 'icon': Icons.access_time_filled},
       {'label': 'Charging', 'value': _toBool(user['isCharging']), 'icon': Icons.battery_charging_full_rounded},
@@ -2680,117 +2283,40 @@ Widget _buildShiftPill(String? shift, ThemeData theme, bool isDark) {
       {'label': 'Sunday', 'value': _toBool(user['isWorkingOnSunday']), 'icon': Icons.calendar_month_rounded},
     ];
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.surfaceContainer.withValues(alpha: 0.7),
-            theme.colorScheme.surfaceContainerHighest,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.5), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.outline.withValues(alpha: 0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: statuses.map((status) {
+        final isActive = status['value'] as bool;
+        final Color tone = isActive ? scheme.primary : scheme.onSurfaceVariant;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          decoration: BoxDecoration(
+            color: isActive
+                ? scheme.primary.withValues(alpha: isDark ? 0.18 : 0.10)
+                : scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isActive ? scheme.primary.withValues(alpha: 0.35) : scheme.outlineVariant,
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.circle_notifications_rounded,
-                color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                size: 24,
-              ),
-              const SizedBox(width: 12),
+              Icon(status['icon'] as IconData, size: 15, color: tone),
+              const SizedBox(width: 7),
               Text(
-                'Status Overview',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
+                status['label'] as String,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: tone,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: statuses.map((status) {
-                  final isActive = status['value'] as bool;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 400),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isActive
-                            ? [theme.colorScheme.primary.withValues(alpha: 0.15), theme.colorScheme.primary.withValues(alpha: 0.05)]
-                            : [Colors.transparent, Colors.transparent],
-                      ),
-                      borderRadius: BorderRadius.circular(25),
-                      border: Border.all(
-                        color: isActive
-                            ? theme.colorScheme.primary.withValues(alpha: 0.4)
-                            : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-                        width: 1.5,
-                      ),
-                      boxShadow: isActive
-                          ? [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : [],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: isActive ? theme.colorScheme.primary.withValues(alpha: 0.2) : Colors.transparent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            status['icon'] as IconData,
-                            size: 18,
-                            color: isActive 
-                                ? theme.colorScheme.primary 
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          status['label'] as String,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                            color: isActive 
-                                ? theme.colorScheme.primary 
-                                : theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 

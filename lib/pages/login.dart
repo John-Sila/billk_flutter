@@ -85,10 +85,22 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       // NOW sign in with Firebase Auth
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      final uid = credential.user?.uid;
+      if (uid != null) {
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(uid).set(
+            {'lastLogin': FieldValue.serverTimestamp()},
+            SetOptions(merge: true),
+          );
+        } catch (error) {
+          debugPrint('Could not save lastLogin timestamp: $error');
+        }
+      }
 
       // Save credentials if "Remember me" checked
       if (_rememberMe) {

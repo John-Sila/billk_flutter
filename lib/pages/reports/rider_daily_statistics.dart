@@ -125,17 +125,12 @@ class _RiderDailyStatisticsState extends State<RiderDailyStatistics> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Rider Daily Statistics',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        elevation: 0,
-        backgroundColor: theme.colorScheme.surface,
-        foregroundColor: theme.colorScheme.onSurface,
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: theme.colorScheme.onSurface),
@@ -166,7 +161,7 @@ body: _loadingUsers
               }
 
               return ListView.builder(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                 itemCount: filteredEntries.length,
                 itemBuilder: (context, index) {
                   final userEntry = filteredEntries[index];
@@ -230,78 +225,76 @@ body: _loadingUsers
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Layout: a rider is a flat card; each shift is a "slip" - date on the left
+  // margin, the two headline figures (gross / net) up top, then plain ledger
+  // lines for everything else. No gradients, no stacked boxes.
+  // ---------------------------------------------------------------------------
+
   Widget _buildRiderCard(String username, String userId, Map<String, dynamic>? clockouts, ThemeData theme) {
+    final scheme = theme.colorScheme;
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Card(
-        elevation: 8,
-        shadowColor: theme.shadowColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        color: theme.cardColor,
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          leading: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  theme.colorScheme.primary.withValues(alpha: 0.8),
-                  theme.colorScheme.primaryContainer,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: CircleAvatar(
+            radius: 19,
+            backgroundColor: scheme.primaryContainer,
+            child: Text(
+              username.isEmpty ? '?' : username[0].toUpperCase(),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: scheme.onPrimaryContainer,
               ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.2),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Icon(
-              Icons.person,
-              color: theme.colorScheme.onPrimary,
-              size: 28,
             ),
           ),
           title: Text(
             username,
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
-            clockouts == null ? 'Tap to load data' : '${clockouts.length} shifts',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            clockouts == null
+                ? 'Tap to load shifts'
+                : '${clockouts.length} ${clockouts.length == 1 ? 'shift' : 'shifts'}',
+            style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           onExpansionChanged: (expanded) {
             if (expanded) _fetchClockoutsForUser(userId);
           },
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          childrenPadding: const EdgeInsets.all(24),
-          backgroundColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.1),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           children: clockouts == null || clockouts.isEmpty
               ? [
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(
-                          width: 32,
-                          height: 32,
+                          width: 18,
+                          height: 18,
                           child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor: AlwaysStoppedAnimation(theme.colorScheme.primary),
+                            strokeWidth: 2.4,
+                            color: scheme.primary,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(width: 12),
                         Text(
                           'Loading shifts...',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -317,191 +310,218 @@ body: _loadingUsers
   }
 
   Widget _buildDayCard(MapEntry<String, dynamic> dayEntry, ThemeData theme) {
+    final scheme = theme.colorScheme;
     final day = dayEntry.key;
     final details = dayEntry.value as Map<String, dynamic>;
     final postedAt = _formatDate(details['posted_at'] as Timestamp?);
 
+    final hasGross = details.containsKey('grossIncome');
+    final hasNet = details.containsKey('netIncome');
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      child: Card(
-        elevation: 4,
-        shadowColor: theme.shadowColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        color: theme.cardColor,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Date line
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              // Day header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      theme.colorScheme.primary.withValues(alpha: 0.8),
-                      theme.colorScheme.primaryContainer,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.today_outlined, 
-                      color: theme.colorScheme.onPrimary, 
-                      size: 20
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            day,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            postedAt,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onPrimary.withValues(alpha: 0.9),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              Expanded(
+                child: Text(
+                  day,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // ONLY display wanted fields in exact order
-              _buildMetricsList(details, theme),
-
-              // Expenses section
-              if (details['expenses'] != null) ...[
-                const SizedBox(height: 20),
-                _buildExpensesSection(details['expenses'] as Map<String, dynamic>, theme),
-              ],
+              if (postedAt.isNotEmpty)
+                Text(
+                  postedAt,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
             ],
           ),
+
+          // Headline figures
+          if (hasGross || hasNet) ...[
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasGross)
+                  Expanded(
+                    child: _headline(
+                      theme,
+                      fieldLabels['grossIncome'] ?? 'Gross Income',
+                      _formatValue(details['grossIncome'].toString(), 'grossIncome'),
+                      scheme.onSurface,
+                    ),
+                  ),
+                if (hasGross && hasNet) const SizedBox(width: 12),
+                if (hasNet)
+                  Expanded(
+                    child: _headline(
+                      theme,
+                      fieldLabels['netIncome'] ?? 'Net Income',
+                      _formatValue(details['netIncome'].toString(), 'netIncome'),
+                      scheme.primary,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+
+          // Remaining lines
+          _buildMetricsList(details, theme),
+
+          // Expenses
+          if (details['expenses'] != null)
+            _buildExpensesSection(details['expenses'] as Map<String, dynamic>, theme),
+        ],
+      ),
+    );
+  }
+
+  Widget _headline(ThemeData theme, String label, String value, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            letterSpacing: 0.3,
+          ),
         ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: valueColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _ledgerLine(ThemeData theme, String label, String value) {
+    final scheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildMetricsList(Map<String, dynamic> details, ThemeData theme) {
-    return Column(
-      children: displayOrder.map((fieldKey) {
-        // Only show if field exists in data
-        if (details.containsKey(fieldKey)) {
-          final label = fieldLabels[fieldKey] ?? fieldKey;
-          final value = details[fieldKey].toString();
-          return Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: theme.dividerColor, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatValue(value, fieldKey),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-        return const SizedBox.shrink(); // Hide missing fields
-      }).where((widget) => widget != const SizedBox.shrink()).toList(),
+    // Gross / net are shown as headline figures above; the rest are ledger lines.
+    final lines = displayOrder
+        .where((k) => k != 'grossIncome' && k != 'netIncome' && details.containsKey(k))
+        .toList();
+    if (lines.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Column(
+        children: lines
+            .map((fieldKey) => _ledgerLine(
+                  theme,
+                  fieldLabels[fieldKey] ?? fieldKey,
+                  _formatValue(details[fieldKey].toString(), fieldKey),
+                ))
+            .toList(),
+      ),
     );
   }
 
   Widget _buildExpensesSection(Map<String, dynamic> expenses, ThemeData theme) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant,
-          width: 1,
+    final scheme = theme.colorScheme;
+    if (expenses.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(10),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.tertiary.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.receipt_long,
-                  color: theme.colorScheme.onTertiaryContainer,
-                  size: 20,
-                ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'EXPENSES',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
               ),
-              const SizedBox(width: 16),
-              Text(
-                'Expenses',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...expenses.entries
-              .map((expense) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            expense.key,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          _formatValue(expense.value.toString(), 'expenses'),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+            ),
+            const SizedBox(height: 4),
+            ...expenses.entries.map(
+              (expense) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        expense.key,
+                        style: theme.textTheme.bodyMedium,
+                      ),
                     ),
-                  ))
-              ,
-        ],
+                    const SizedBox(width: 12),
+                    Text(
+                      _formatValue(expense.value.toString(), 'expenses'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

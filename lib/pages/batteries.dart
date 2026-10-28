@@ -1,3 +1,4 @@
+import 'package:billkmotolinkltd/theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -176,6 +177,7 @@ class _BatteriesState extends State<Batteries> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
     if (currentUserName == null || isLoading) {
@@ -184,7 +186,7 @@ class _BatteriesState extends State<Batteries> {
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(
-              color: Colors.teal,
+              color: scheme.primary,
               strokeWidth: 2.5,
             ),
             const SizedBox(height: 16),
@@ -192,7 +194,7 @@ class _BatteriesState extends State<Batteries> {
               'Loading batteries...',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey[500],
+                color: scheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -206,14 +208,14 @@ class _BatteriesState extends State<Batteries> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.battery_unknown_rounded, size: 56, color: Colors.grey[300]),
+            Icon(Icons.battery_unknown_rounded, size: 56, color: scheme.outline),
             const SizedBox(height: 12),
             Text(
               'No batteries available',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[400],
+                color: scheme.onSurfaceVariant,
               ),
             ),
           ],
@@ -232,7 +234,7 @@ class _BatteriesState extends State<Batteries> {
       });
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       itemCount: sortedBatteries.length,
       itemBuilder: (context, index) {
         final entry = sortedBatteries[index];
@@ -250,37 +252,30 @@ class _BatteriesState extends State<Batteries> {
         final bool isAvailable = !isBooked && assignedRider == 'None';
         final bool bookedByMe = isBooked && bookedBy == currentUserName;
 
-        // Status palette
+        // Status palette - derived from the theme so it follows light/dark:
+        // booked = tertiary, mine = success, others = danger, free = primary.
         final Color statusColor;
-        final Color statusBg;
         final String statusLabel;
         final IconData statusIcon;
 
         if (isBooked) {
-          statusColor = const Color(0xFF3B82F6);
-          statusBg = const Color(0xFFEFF6FF);
+          statusColor = scheme.tertiary;
           statusLabel = bookedByMe ? 'Booked by me' : 'Booked by $bookedBy';
           statusIcon = Icons.lock_clock_rounded;
         } else if (isAssignedToMe) {
-          statusColor = const Color(0xFF10B981);
-          statusBg = const Color(0xFFECFDF5);
+          statusColor = AppTheme.success;
           statusLabel = 'Assigned to me';
           statusIcon = Icons.verified_rounded;
         } else if (isAssignedToOther) {
-          statusColor = const Color(0xFFEF4444);
-          statusBg = const Color(0xFFFEF2F2);
+          statusColor = AppTheme.danger;
           statusLabel = 'Assigned to $assignedRider';
           statusIcon = Icons.person_off_rounded;
         } else {
-          statusColor = const Color(0xFF14B8A6);
-          statusBg = isDark ? const Color(0xFF0F2924) : const Color(0xFFF0FDFA);
+          statusColor = scheme.primary;
           statusLabel = 'Available';
           statusIcon = Icons.battery_charging_full_rounded;
         }
-
-        if (isDark) {
-          // soften backgrounds in dark mode
-        }
+        final Color statusBg = statusColor.withValues(alpha: isDark ? 0.18 : 0.10);
 
         final isOpen = expanded.contains(id);
         final isBusy = busy.contains(id);
@@ -291,32 +286,21 @@ class _BatteriesState extends State<Batteries> {
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isOpen
-                    ? statusColor.withValues(alpha: 0.5)
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.07)),
-                width: 1.2,
+                    ? statusColor.withValues(alpha: 0.55)
+                    : scheme.outlineVariant,
+                width: isOpen ? 1.4 : 1,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: isOpen
-                      ? statusColor.withValues(alpha: 0.10)
-                      : Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
-                  blurRadius: isOpen ? 20 : 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(16),
                   onTap: isBusy
                       ? null
                       : () => setState(() {
@@ -328,7 +312,7 @@ class _BatteriesState extends State<Batteries> {
                     children: [
                       // ── Header row ──────────────────────────────────
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                         child: Row(
                           children: [
                             // Status dot + icon
@@ -353,7 +337,7 @@ class _BatteriesState extends State<Batteries> {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      color: scheme.onSurface,
                                       letterSpacing: -0.2,
                                     ),
                                   ),
@@ -401,7 +385,7 @@ class _BatteriesState extends State<Batteries> {
                                   assignedRider != 'None')
                                 _actionIcon(
                                   icon: Icons.person_remove_rounded,
-                                  color: Colors.deepOrange,
+                                  color: AppTheme.warning,
                                   tooltip: 'Admin Drop',
                                   onTap: () => _showAdminDropBatteryDialog(context, id, batteryName),
                                 ),
@@ -410,7 +394,7 @@ class _BatteriesState extends State<Batteries> {
                               if (isAvailable)
                                 _actionIcon(
                                   icon: Icons.add_circle_rounded,
-                                  color: Colors.teal,
+                                  color: scheme.primary,
                                   tooltip: 'Book battery',
                                   onTap: () => _handleBook(context, id, batteryName),
                                 ),
@@ -419,7 +403,7 @@ class _BatteriesState extends State<Batteries> {
                               if (bookedByMe)
                                 _actionIcon(
                                   icon: Icons.cancel_rounded,
-                                  color: Colors.red,
+                                  color: scheme.error,
                                   tooltip: 'Unbook',
                                   onTap: () => _handleUnbook(context, id, batteryName),
                                 ),
@@ -431,7 +415,7 @@ class _BatteriesState extends State<Batteries> {
                                 child: Icon(
                                   Icons.keyboard_arrow_down_rounded,
                                   size: 22,
-                                  color: isDark ? Colors.white38 : Colors.black38,
+                                  color: scheme.outline,
                                 ),
                               ),
                             ],
@@ -444,15 +428,13 @@ class _BatteriesState extends State<Batteries> {
                         firstChild: const SizedBox.shrink(),
                         secondChild: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                           child: Column(
                             children: [
                               Divider(
                                 height: 1,
                                 thickness: 1,
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.06)
-                                    : Colors.black.withValues(alpha: 0.05),
+                                color: scheme.outlineVariant,
                               ),
                               const SizedBox(height: 14),
                               Wrap(
@@ -462,28 +444,20 @@ class _BatteriesState extends State<Batteries> {
                                   _chip(
                                     icon: Icons.location_on_rounded,
                                     label: data['batteryLocation'] ?? 'N/A',
-                                    color: Colors.teal,
-                                    isDark: isDark,
                                   ),
                                   _chip(
                                     icon: Icons.pedal_bike_rounded,
                                     label: data['assignedBike'] ?? 'N/A',
-                                    color: Colors.indigo,
-                                    isDark: isDark,
                                   ),
                                   _chip(
                                     icon: Icons.qr_code_rounded,
                                     label: data['qr_code'] != null
                                         ? '···${data['qr_code'].toString().substring(data['qr_code'].toString().length - 5)}'
                                         : 'N/A',
-                                    color: Colors.purple,
-                                    isDark: isDark,
                                   ),
                                   _chip(
                                     icon: Icons.access_time_rounded,
                                     label: formatTimeAgo(data['offTime']),
-                                    color: Colors.orange,
-                                    isDark: isDark,
                                   ),
                                 ],
                               ),
@@ -529,27 +503,26 @@ class _BatteriesState extends State<Batteries> {
   Widget _chip({
     required IconData icon,
     required String label,
-    required Color color,
-    required bool isDark,
   }) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.12 : 0.08),
+        color: scheme.surfaceContainer,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
+          Icon(icon, size: 13, color: scheme.primary),
           const SizedBox(width: 5),
           Text(
             label,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isDark ? color.withValues(alpha: 0.9) : color.withValues(alpha: 0.85),
+              color: scheme.onSurface,
             ),
           ),
         ],
@@ -591,7 +564,7 @@ class _BatteriesState extends State<Batteries> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              foregroundColor: Colors.white,
+              foregroundColor: colorScheme.onPrimary,
               backgroundColor: colorScheme.primary,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
@@ -601,7 +574,7 @@ class _BatteriesState extends State<Batteries> {
                 Icon(
                   Icons.check_circle_outline,
                   size: 18,
-                  color: Colors.white,
+                  color: colorScheme.onPrimary,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -649,7 +622,10 @@ class _BatteriesState extends State<Batteries> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Unbook'),
           ),
@@ -733,7 +709,7 @@ class _BatteriesState extends State<Batteries> {
             TextButton(
               style: TextButton.styleFrom(
                 foregroundColor: localTheme.colorScheme.error,
-                backgroundColor: localTheme.colorScheme.errorContainer.withOpacity(0.1),
+                backgroundColor: localTheme.colorScheme.errorContainer.withValues(alpha: 0.35),
               ),
               onPressed: () async {
                 Navigator.pop(dialogContext);

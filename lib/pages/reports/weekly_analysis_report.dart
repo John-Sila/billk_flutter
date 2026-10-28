@@ -1,4 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:ui' show FontFeature;
+
+import 'package:billkmotolinkltd/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -113,15 +116,12 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
       });
     
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
-          'Weekly Analysis Report',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          'Weekly Analysis',
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        elevation: 0,
-        backgroundColor: theme.colorScheme.surface,
-        foregroundColor: theme.colorScheme.onSurface,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -134,7 +134,7 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
     : sortedWeeks.isEmpty
         ? _buildEmptyState(context)
         : ListView.builder(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
             itemCount: sortedWeeks.length,
             itemBuilder: (context, weekIndex) {
               final weekEntry = sortedWeeks[weekIndex];  // ✅ Direct index access
@@ -190,69 +190,71 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
     );
   }
 
-  Widget _buildWeekSection(String weekName, Map<String, dynamic> usersMap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      child: Card(
-        elevation: 8,
-        shadowColor: Colors.black.withValues(alpha: 0.1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: _buildWeekExpansionTile(weekName, usersMap),
-      ),
-    );
-  }
+  // ---------------------------------------------------------------------------
+  // Layout: each week is a flat card with a thin teal spine. Riders are plain
+  // rows (initial + name + two figures). Opening a rider reveals a ledger:
+  // hairline-ruled rows, right-aligned figures, deviations tinted by sign.
+  // ---------------------------------------------------------------------------
 
-  Widget _buildWeekExpansionTile(String weekName, Map<String, dynamic> usersMap) {
-    return ExpansionTile(
-      leading: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.indigo[400]!, Colors.indigo[600]!],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Icon(
-          Icons.calendar_month,
-          color: Colors.white,
-          size: 28,
+  Widget _buildWeekSection(String weekName, Map<String, dynamic> usersMap) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dayCount = usersMap.values.expand((user) => (user as Map).values).length;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: scheme.primary),
+            Expanded(
+              child: Theme(
+                data: theme.copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+                  childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  shape: const Border(),
+                  collapsedShape: const Border(),
+                  title: Text(
+                    weekName,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
+                    ),
+                  ),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '${usersMap.length} riders  ·  $dayCount days logged',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  children: usersMap.entries.map(_buildUserCard).toList(),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-      title: Text(
-        weekName,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      subtitle: Text(
-        '${usersMap.length} users • ${usersMap.values.expand((user) => (user as Map).values).length} days',
-        style: TextStyle(
-          fontSize: 14,
-          color: Colors.grey[600],
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      collapsedShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      childrenPadding: const EdgeInsets.all(20),
-      collapsedBackgroundColor: Colors.transparent,
-      children: usersMap.entries
-          .map((userEntry) => _buildUserCard(userEntry))
-          .toList(),
     );
   }
 
   Widget _buildUserCard(MapEntry<String, dynamic> userEntry) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final userName = userEntry.key;
     final daysMap = userEntry.value as Map<String, dynamic>;
-    
-    // Calculate totals for this user
+
     double totalGross = 0, totalNet = 0, totalGrossDev = 0, totalNetGrossDiff = 0;
-    
     for (final dayEntry in daysMap.entries) {
       final dayData = dayEntry.value as Map<String, dynamic>;
       totalGross += (dayData['grossIncome'] ?? 0).toDouble();
@@ -262,56 +264,71 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12), // Reduced from 16
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      margin: const EdgeInsets.only(top: 6),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          shape: const Border(),
+          collapsedShape: const Border(),
           leading: CircleAvatar(
-            radius: 20, // Reduced from 24
-            backgroundColor: Colors.green[400],
-            child: Icon(Icons.person, color: Colors.white, size: 20),
+            radius: 15,
+            backgroundColor: scheme.primaryContainer,
+            child: Text(
+              userName.isEmpty ? '?' : userName[0].toUpperCase(),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: scheme.onPrimaryContainer,
+              ),
+            ),
           ),
           title: Text(
             userName,
-            style: const TextStyle(
-              fontSize: 16, // Reduced from 18
-              fontWeight: FontWeight.w600,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Gross ',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                  TextSpan(
+                    text: _formatNumber(totalGross),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  TextSpan(
+                    text: '   Net ',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                  TextSpan(
+                    text: _formatNumber(totalNet),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: scheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+              style: theme.textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          subtitle: Wrap( // Changed from Row
-            spacing: 6,
-            runSpacing: 2,
-            children: [
-              _buildMetricChip('Gross', totalGross, Colors.green),
-              _buildMetricChip('Net', totalNet, Colors.blue),
-            ],
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16), // Tightened
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           children: [
             _buildUserDataTable(daysMap, totalGross, totalNet, totalGrossDev, totalNetGrossDiff),
           ],
-        ),
-      ),
-    );
-
-  
-  }
-
-  Widget _buildMetricChip(String label, double value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '$label: ${_formatNumber(value)}',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
         ),
       ),
     );
@@ -324,6 +341,9 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
     double totalGrossDev,
     double totalNetGrossDiff,
   ) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     final List<String> dayOrder = [
       'Monday',
       'Tuesday',
@@ -338,17 +358,83 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
       ..sort((a, b) {
         final ia = dayOrder.indexOf(a.key);
         final ib = dayOrder.indexOf(b.key);
-        // Unknown day names go to the end, keep their relative order
         if (ia == -1 && ib == -1) return 0;
         if (ia == -1) return 1;
         if (ib == -1) return -1;
         return ia.compareTo(ib);
       });
 
-    final List<DataRow> rows = [];
+    // Column weights: day label gets a bit more room, figures share the rest.
+    const flexes = [26, 24, 24, 21, 21];
+
+    Widget cell(int i, Widget child, {Alignment align = Alignment.centerRight}) {
+      return Expanded(
+        flex: flexes[i],
+        child: Align(
+          alignment: align,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: align,
+            child: child,
+          ),
+        ),
+      );
+    }
+
+    Widget headCell(int i, String t) => cell(
+          i,
+          Text(
+            t.toUpperCase(),
+            style: TextStyle(
+              fontSize: 10,
+              letterSpacing: 0.6,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          align: i == 0 ? Alignment.centerLeft : Alignment.centerRight,
+        );
+
+    // Deviation / difference: tinted by sign so shortfalls stand out.
+    Color signColor(double v) {
+      if (v < 0) return AppTheme.danger;
+      if (v > 0) return AppTheme.success;
+      return scheme.onSurfaceVariant;
+    }
+
+    Widget figure(int i, double v, {bool bold = false, bool tinted = false}) {
+      return cell(
+        i,
+        Text(
+          _formatNumber(v),
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+            color: tinted ? signColor(v) : scheme.onSurface,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      );
+    }
+
+    final hairline = BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7));
+
+    final rows = <Widget>[
+      Padding(
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 6),
+        child: Row(
+          children: [
+            headCell(0, 'Day'),
+            headCell(1, 'Gross'),
+            headCell(2, 'Net'),
+            headCell(3, 'Dev'),
+            headCell(4, 'Diff'),
+          ],
+        ),
+      ),
+    ];
 
     for (final dayEntry in sortedEntries) {
-      final day = dayEntry.key;
       final mapData = dayEntry.value as Map<String, dynamic>;
       final gross = (mapData['grossIncome'] ?? 0).toDouble();
       final net = (mapData['netIncome'] ?? 0).toDouble();
@@ -356,72 +442,54 @@ class _WeeklyAnalysisReportState extends State<WeeklyAnalysisReport> {
       final netGrossDiff = (mapData['netGrossDifference'] ?? 0).toDouble();
 
       rows.add(
-        DataRow(
-          cells: [
-            DataCell(Text(day)),
-            DataCell(Text(_formatNumber(gross))),
-            DataCell(Text(_formatNumber(net))),
-            DataCell(Text(_formatNumber(grossDev))),
-            DataCell(Text(_formatNumber(netGrossDiff))),
-          ],
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(border: Border(top: hairline)),
+          child: Row(
+            children: [
+              cell(
+                0,
+                Text(
+                  dayEntry.key,
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+                align: Alignment.centerLeft,
+              ),
+              figure(1, gross),
+              figure(2, net),
+              figure(3, grossDev, tinted: true),
+              figure(4, netGrossDiff, tinted: true),
+            ],
+          ),
         ),
       );
     }
 
-    // Add TOTAL row (as you already had, without `decoration`)
     rows.add(
-      DataRow(
-        cells: [
-          const DataCell(
-            Text(
-              'TOTAL',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      Container(
+        padding: const EdgeInsets.only(top: 9, bottom: 2),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: scheme.onSurface.withValues(alpha: 0.55), width: 1.2)),
+        ),
+        child: Row(
+          children: [
+            cell(
+              0,
+              const Text(
+                'Total',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+              ),
+              align: Alignment.centerLeft,
             ),
-          ),
-          DataCell(
-            Text(
-              _formatNumber(totalGross),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-          DataCell(
-            Text(
-              _formatNumber(totalNet),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-          DataCell(
-            Text(
-              _formatNumber(totalGrossDev),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-          DataCell(
-            Text(
-              _formatNumber(totalNetGrossDiff),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ),
-        ],
+            figure(1, totalGross, bold: true),
+            figure(2, totalNet, bold: true),
+            figure(3, totalGrossDev, bold: true, tinted: true),
+            figure(4, totalNetGrossDiff, bold: true, tinted: true),
+          ],
+        ),
       ),
     );
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        headingRowHeight: 48,
-        columns: const [
-          DataColumn(label: Text('Day')),
-          DataColumn(label: Text('Gross')),
-          DataColumn(label: Text('Net')),
-          DataColumn(label: Text('Gross Dev')),
-          DataColumn(label: Text('Net-Gross Diff')),
-        ],
-        rows: rows,
-      ),
-    );
+    return Column(children: rows);
   }
-
-
-
 }

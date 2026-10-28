@@ -1,3 +1,4 @@
+import 'package:billkmotolinkltd/theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -314,47 +315,86 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
     }
   }
 
+  static const _weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  // Series colours come from the theme so they follow light/dark mode.
+  Color _metricColor(String metric, ColorScheme s) {
+    switch (metric) {
+      case 'gross':
+        return s.primary;
+      case 'net':
+        return s.tertiary;
+      default:
+        return AppTheme.warning;
+    }
+  }
+
+  String _metricName(String metric) {
+    switch (metric) {
+      case 'gross':
+        return 'Gross income';
+      case 'net':
+        return 'Net income';
+      default:
+        return 'Expenses';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final totals = _calculateTotals();
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           _currentWeekLabel ?? 'This Week',
-          style: const TextStyle(fontWeight: FontWeight.w700),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
         ),
-        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _fetchThisWeek,
           ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : _thisWeekData == null || _thisWeekData!.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.analytics_outlined, size: 80, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text('No data for this week', style: theme.textTheme.titleLarge),
+                      Icon(Icons.analytics_outlined, size: 56, color: scheme.outline),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No data for this week',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 )
               : _selectedMetric != null && _selectedDay != null
                   ? _buildUserContributionsView(totals, theme)
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildTotalsSection(totals, theme),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 22),
                           _buildTrendCharts(totals, theme),
                         ],
                       ),
@@ -362,40 +402,51 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
     );
   }
 
+  // Week totals: one flat card, three tappable ledger lines.
   Widget _buildTotalsSection(Map<String, double> totals, ThemeData theme) {
+    final scheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.withValues(alpha: 0.05), Colors.blue.withValues(alpha: 0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          Row(
-            children: [
-              Icon(Icons.trending_up, color: Colors.green.shade600, size: 28),
-              const SizedBox(width: 12),
-              Text('Week Totals', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Row(
+              children: [
+                Text(
+                  'WEEK TOTALS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Tap a line for the daily breakdown',
+                  style: TextStyle(fontSize: 11, color: scheme.outline),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          _buildClickableMetric("Total Gross", totals['gross']!, theme, Colors.green.shade500, Icons.trending_up_rounded, 'gross'),
-          const SizedBox(height: 16),
-          _buildClickableMetric("Total Net", totals['net']!, theme, Colors.blue.shade500, Icons.account_balance_wallet_rounded, 'net'),
-          const SizedBox(height: 16),
-          _buildClickableMetric("Total Expenses", totals['expense']!, theme, Colors.orange.shade500, Icons.receipt_long_rounded, 'expense'),
+          _buildClickableMetric('Total gross', totals['gross']!, theme, 'gross', first: true),
+          _buildClickableMetric('Total net', totals['net']!, theme, 'net'),
+          _buildClickableMetric('Total expenses', totals['expense']!, theme, 'expense'),
         ],
       ),
     );
   }
 
-  Widget _buildClickableMetric(String label, double value, ThemeData theme, Color color, IconData icon, String metric) {
-    return GestureDetector(
+  Widget _buildClickableMetric(String label, double value, ThemeData theme, String metric, {bool first = false}) {
+    final scheme = theme.colorScheme;
+    final color = _metricColor(metric, scheme);
+    return InkWell(
       onTap: () {
         showModalBottomSheet(
           context: context,
@@ -405,34 +456,39 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          gradient: LinearGradient(colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)]),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))],
+          border: Border(
+            top: BorderSide(
+              color: first ? Colors.transparent : scheme.outlineVariant.withValues(alpha: 0.7),
+            ),
+          ),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 24),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
-                  Text(
-                    'KSh ${_formatCurrency(value)}',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color, height: 1.1),
-                  ),
-                ],
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
-            Icon(Icons.arrow_forward_ios, color: color.withValues(alpha: 0.5), size: 16),
+            Text(
+              'KSh ${_formatCurrency(value)}',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.chevron_right_rounded, color: scheme.outline, size: 20),
           ],
         ),
       ),
@@ -441,13 +497,13 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
 
   double _getDayTotal(String dayName, String metric) {
     if (_thisWeekData == null) return 0;
-    
+
     double total = 0;
-    
+
     for (final userEntry in _thisWeekData!.entries) {
       final userDays = userEntry.value as Map<String, dynamic>;
       final dayData = userDays[dayName];
-      
+
       if (dayData != null) {
         switch (metric) {
           case 'gross':
@@ -464,121 +520,90 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
         }
       }
     }
-    
+
     return total;
   }
 
   Widget _buildDaySelectorModal(String metric, ThemeData theme) {
-    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    final isDark = theme.brightness == Brightness.dark;
-    
-    // Metric display names and colors
-    final metricInfo = {
-      'gross': {'name': 'Gross Income', 'color': Colors.green.shade500},
-      'net': {'name': 'Net Income', 'color': Colors.blue.shade500},
-      'expense': {'name': 'Expenses', 'color': Colors.orange.shade500},
-    };
-    
-    final metricName = metricInfo[metric]!['name'] as String;
-    final metricColor = metricInfo[metric]!['color'] as Color;
+    final scheme = theme.colorScheme;
+    final metricColor = _metricColor(metric, scheme);
+    final metricName = _metricName(metric);
 
     return Container(
-      height: 500, // Increased height for better spacing
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface, // ✅ Theme adaptive
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, -10),
-          ),
-        ],
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.78,
       ),
-      child: Column(
-        children: [
-          // Header with metric info
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-            decoration: BoxDecoration(
-              color: metricColor.withValues(alpha: 0.08),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: metricColor.withValues(alpha: 0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.analytics, color: metricColor, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            metricName,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                          ),
-                          Text(
-                            'Tap day to see rider contributions',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        border: Border(top: BorderSide(color: scheme.outlineVariant)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 14),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: scheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: metricColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.calendar_today, color: metricColor.withValues(alpha: 0.7), size: 20),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Week Total: KSh ${_formatCurrency(_calculateTotals()[metric]!)}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: metricColor,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          metricName.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.1,
+                            color: metricColor,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          'KSh ${_formatCurrency(_calculateTotals()[metric]!)}',
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  Text(
+                    'Tap a day for riders',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
-          ),
-          
-          // Days list
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              itemCount: weekdays.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 2),
-              itemBuilder: (context, index) {
-                final day = weekdays[index];
-                final dayTotal = _getDayTotal(day, metric);
-                final hasData = dayTotal > 0;
-                
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
+            const SizedBox(height: 10),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                itemCount: _weekdays.length,
+                itemBuilder: (context, index) {
+                  final day = _weekdays[index];
+                  final dayTotal = _getDayTotal(day, metric);
+                  final hasData = dayTotal > 0;
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(12),
                     onTap: hasData
                         ? () {
                             Navigator.pop(context);
@@ -589,171 +614,174 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
                           }
                         : null,
                     child: Container(
-                      padding: const EdgeInsets.all(20),
-                      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                       decoration: BoxDecoration(
-                        color: hasData 
-                            ? metricColor.withValues(alpha: 0.06)
-                            : theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: hasData 
-                              ? metricColor.withValues(alpha: 0.2)
-                              : theme.colorScheme.outlineVariant!,
-                          width: 1.5,
+                        border: Border(
+                          top: BorderSide(
+                            color: index == 0
+                                ? scheme.outlineVariant
+                                : scheme.outlineVariant.withValues(alpha: 0.6),
+                          ),
                         ),
                       ),
                       child: Row(
                         children: [
-                          // Day number circle
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: hasData 
-                                  ? metricColor.withValues(alpha: 0.15)
-                                  : theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: hasData 
-                                    ? metricColor.withValues(alpha: 0.3)
-                                    : Colors.transparent,
-                              ),
-                            ),
-                            child: Text(
-                              '${index + 1}',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: hasData ? metricColor : theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          
-                          // Day info
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  day,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'KSh ${_formatCurrency(dayTotal)}',
-                                  style: theme.textTheme.bodyLarge?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: hasData ? metricColor : theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              day,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: hasData ? scheme.onSurface : scheme.outline,
+                              ),
                             ),
                           ),
-                          
-                          // Status indicator
-                          if (hasData)
-                            Icon(
-                              Icons.arrow_forward_ios,
-                              color: metricColor.withValues(alpha: 0.7),
-                              size: 18,
-                            )
-                          else
-                            Icon(
-                              Icons.schedule_outlined,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              size: 20,
+                          Text(
+                            hasData ? 'KSh ${_formatCurrency(dayTotal)}' : 'No data',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: hasData ? FontWeight.w800 : FontWeight.w500,
+                              color: hasData ? scheme.onSurface : scheme.outline,
                             ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: hasData ? scheme.outline : Colors.transparent,
+                          ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildUserContributionsView(Map<String, double> totals, ThemeData theme) {
+    final scheme = theme.colorScheme;
     final contributions = _getDayUserContributions(_selectedDay!, _selectedMetric!);
-    
+    final metricColor = _metricColor(_selectedMetric!, scheme);
+    final dayTotal = _getDayTotal(_selectedDay!, _selectedMetric!);
+
     return Column(
       children: [
-        AppBar(
-          title: Text(
-            '$_selectedDay ● ${_selectedMetric![0].toUpperCase()}${_selectedMetric!.substring(1)}', 
-            style: const TextStyle(
-              fontWeight: FontWeight.w800, // Extra heavy weight
-              fontSize: 18, // Slightly larger for impact
-            ),
+        // Slim header in place of the old second app bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => setState(() {
+                  _selectedMetric = null;
+                  _selectedDay = null;
+                }),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$_selectedDay  ·  ${_metricName(_selectedMetric!)}',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'KSh ${_formatCurrency(dayTotal)}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: metricColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: _fetchThisWeek,
+              ),
+            ],
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => setState(() {
-              _selectedMetric = null;
-              _selectedDay = null;
-            }),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _fetchThisWeek,
-            ),
-          ],
         ),
         Expanded(
           child: contributions.isEmpty
-              ? Center(child: Text('No contributions for this day'))
+              ? Center(
+                  child: Text(
+                    'No contributions for this day',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                )
               : ListView.builder(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
                   itemCount: contributions.length,
                   itemBuilder: (context, index) {
                     final userEntry = contributions.entries.elementAt(index);
                     final user = userEntry.key;
                     final data = userEntry.value;
-                    
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        leading: CircleAvatar(child: Text(user[0].toUpperCase())),
-                        title: Text(user, style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text('KSh ${_formatCurrency(data['amount']!)}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // WhatsApp
-                            GestureDetector(
-                              onTap: () => _contactRider(user, 'whatsapp', data['amount']!),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                margin: const EdgeInsets.only(right: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(Icons.chat_outlined, color: Colors.green.shade600, size: 18),
-                              ),
-                            ),
-                            // Phone Call
-                            GestureDetector(
-                              onTap: () => _contactRider(user, 'call', data['amount']!),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(Icons.call_outlined, color: Colors.blue.shade600, size: 18),
-                              ),
-                            ),
-                          ],
-                        ),
 
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                      decoration: BoxDecoration(
+                        color: scheme.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: scheme.outlineVariant),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: scheme.primaryContainer,
+                            child: Text(
+                              user.isEmpty ? '?' : user[0].toUpperCase(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: scheme.onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  user,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'KSh ${_formatCurrency(data['amount']!)}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: metricColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _contactButton(
+                            icon: Icons.chat_outlined,
+                            color: AppTheme.success,
+                            tooltip: 'WhatsApp',
+                            onTap: () => _contactRider(user, 'whatsapp', data['amount']!),
+                          ),
+                          _contactButton(
+                            icon: Icons.call_outlined,
+                            color: scheme.primary,
+                            tooltip: 'Call',
+                            onTap: () => _contactRider(user, 'call', data['amount']!),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -763,57 +791,141 @@ class _ThisWeekStateReportState extends State<ThisWeekStateReport> {
     );
   }
 
+  Widget _contactButton({
+    required IconData icon,
+    required Color color,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          margin: const EdgeInsets.only(left: 4),
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 19),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTrendCharts(Map<String, double> totals, ThemeData theme) {
+    final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Daily Trends', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 20),
-        _buildChartSection("📈 Gross Income", _buildDailyTrend('gross'), theme, Colors.green.shade500),
-        const SizedBox(height: 20),
-        _buildChartSection("💰 Net Income", _buildDailyTrend('net'), theme, Colors.blue.shade500),
-        const SizedBox(height: 20),
-        _buildChartSection("💸 Expenses", _buildDailyTrend('expense'), theme, Colors.orange.shade500),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'DAILY TRENDS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildChartSection('Gross income', _buildDailyTrend('gross'), theme, _metricColor('gross', scheme)),
+              const SizedBox(height: 18),
+              _buildChartSection('Net income', _buildDailyTrend('net'), theme, _metricColor('net', scheme)),
+              const SizedBox(height: 18),
+              _buildChartSection('Expenses', _buildDailyTrend('expense'), theme, _metricColor('expense', scheme)),
+            ],
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildChartSection(String title, List<FlSpot> spots, ThemeData theme, Color lineColor) {
+    final scheme = theme.colorScheme;
+
     if (spots.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [Icon(Icons.analytics_outlined, color: theme.colorScheme.onSurfaceVariant), const SizedBox(width: 16), Text('No data for $title', style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant))]),
+      return Text(
+        'No data for ${title.toLowerCase()}',
+        style: theme.textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
       );
     }
 
     final isDark = theme.brightness == Brightness.dark;
-    final gridColor = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1);
-    final borderColor = isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.2);
-    final bgColor = isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.9);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderColor)),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: lineColor.withValues(alpha: 0.2), shape: BoxShape.circle), child: Icon(Icons.show_chart, color: lineColor, size: 20)),
-          const SizedBox(width: 12),
-          Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, color: lineColor)),
-        ]),
-        const SizedBox(height: 20),
-        Container(
-          height: 200,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: borderColor)),
-          child: LineChart(LineChartData(
-            gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: gridColor, strokeWidth: 1, dashArray: [5, 5])),
-            titlesData: const FlTitlesData(show: false),
-            borderData: FlBorderData(show: true),
-            lineBarsData: [LineChartBarData(isCurved: true, curveSmoothness: 0.4, spots: spots, barWidth: 4, color: lineColor, shadow: Shadow(color: lineColor.withValues(alpha: 0.4), blurRadius: 8), dotData: FlDotData(show: true, getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 6, color: lineColor, strokeWidth: 3, strokeColor: isDark ? Colors.black : Colors.white)), belowBarData: BarAreaData(show: true, gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [lineColor.withValues(alpha: isDark ? 0.3 : 0.4), lineColor.withValues(alpha: 0.0)])))],
-          )),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+            color: lineColor,
+          ),
         ),
-      ]),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 120,
+          child: LineChart(
+            LineChartData(
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (value) => FlLine(
+                  color: scheme.outlineVariant.withValues(alpha: 0.8),
+                  strokeWidth: 1,
+                ),
+              ),
+              titlesData: const FlTitlesData(show: false),
+              borderData: FlBorderData(show: false),
+              lineBarsData: [
+                LineChartBarData(
+                  isCurved: true,
+                  curveSmoothness: 0.25,
+                  spots: spots,
+                  barWidth: 2,
+                  color: lineColor,
+                  dotData: FlDotData(
+                    show: spots.length <= 8,
+                    getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                      radius: 3,
+                      color: lineColor,
+                      strokeWidth: 1.5,
+                      strokeColor: isDark ? scheme.surface : Colors.white,
+                    ),
+                  ),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        lineColor.withValues(alpha: isDark ? 0.22 : 0.16),
+                        lineColor.withValues(alpha: 0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
-
 }

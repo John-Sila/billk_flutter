@@ -206,16 +206,13 @@ class _AbsenteeismState extends State<Absenteeism> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Attendance Rota', style: TextStyle(fontWeight: FontWeight.bold)),
-        elevation: 0,
-        backgroundColor: theme.colorScheme.surface,
-        foregroundColor: theme.colorScheme.onSurface,
+        title: const Text('Attendance Rota', style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            icon: Icon(Icons.refresh, color: theme.colorScheme.onSurface),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -229,93 +226,79 @@ class _AbsenteeismState extends State<Absenteeism> {
                   : RefreshIndicator(
                       onRefresh: _load,
                       child: ListView(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                         children: [
                           _buildHeaderCard(theme),
-                          const SizedBox(height: 16),
-                          ..._weeks.map((week) => _buildWeekTile(week, theme)),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
+                          ..._weeks.asMap().entries.map(
+                                (e) => _buildWeekTile(e.value, theme, e.key == 0),
+                              ),
                         ],
                       ),
                     ),
     );
   }
 
+  // Plain summary: one line of fact, one line of how it is worked out.
   Widget _buildHeaderCard(ThemeData theme) {
+    final scheme = theme.colorScheme;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary.withValues(alpha: 0.9),
-            theme.colorScheme.primaryContainer,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withValues(alpha: 0.25),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.event_busy_rounded, color: Colors.white, size: 26),
+          Text(
+            '${_roster.length} active rider${_roster.length == 1 ? '' : 's'} tracked',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${_roster.length} active rider${_roster.length == 1 ? '' : 's'} tracked',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Presence is derived from clock-out records. '
-                  'Riders not scheduled for Sunday work are excluded from Sunday absences.',
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.92), fontSize: 12.5),
-                ),
-                if (_duplicateNameCount > 0) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+          const SizedBox(height: 4),
+          Text(
+            'Presence comes from clock-out records. Riders not scheduled '
+            'for Sunday work are left out of Sunday absences.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          if (_duplicateNameCount > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: AppTheme.warning),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      '⚠ $_duplicateNameCount duplicate rider name(s) detected — '
-                      'attendance for those names may overlap.',
-                      style: const TextStyle(color: Colors.white, fontSize: 11.5),
+                      '$_duplicateNameCount duplicate rider name(s) detected. '
+                      'Attendance for those names may overlap.',
+                      style: TextStyle(fontSize: 12, color: scheme.onSurface, height: 1.35),
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildWeekTile(_WeekData week, ThemeData theme) {
+  Widget _buildWeekTile(_WeekData week, ThemeData theme, bool latest) {
+    final scheme = theme.colorScheme;
+
     // Only count days that have already occurred.
     final relevantDays = _weekdayOrder
         .asMap()
@@ -339,54 +322,92 @@ class _AbsenteeismState extends State<Absenteeism> {
         }
       }
     }
+    final totalMarks = totalPresentMarks + totalAbsentMarks;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Card(
-        elevation: 6,
-        shadowColor: theme.shadowColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusLg)),
-        clipBehavior: Clip.antiAlias,
-        child: ExpansionTile(
-          leading: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(Icons.calendar_month_rounded, color: theme.colorScheme.onPrimaryContainer),
-          ),
-          title: Text(
-            week.label,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              children: [
-                _buildLegendDot(AppTheme.success, '$totalPresentMarks present'),
-                const SizedBox(width: 14),
-                _buildLegendDot(AppTheme.danger, '$totalAbsentMarks absent'),
-              ],
-            ),
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: relevantDays.isEmpty
-              ? [
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      'No days have occurred yet for this week.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: latest ? scheme.primary : scheme.outlineVariant),
+            Expanded(
+              child: Theme(
+                data: theme.copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.fromLTRB(14, 4, 12, 4),
+                  childrenPadding: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+                  shape: const Border(),
+                  collapsedShape: const Border(),
+                  title: Text(
+                    week.label,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.25,
                     ),
                   ),
-                ]
-              : relevantDays
-                  .map((day) => _buildDayTile(week, day, theme))
-                  .toList(),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _buildLegendDot(AppTheme.success, '$totalPresentMarks present'),
+                            const SizedBox(width: 14),
+                            _buildLegendDot(AppTheme.danger, '$totalAbsentMarks absent'),
+                          ],
+                        ),
+                        if (totalMarks > 0) ...[
+                          const SizedBox(height: 8),
+                          // Thin proportion bar: present vs absent for the week
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: SizedBox(
+                              height: 5,
+                              child: Row(
+                                children: [
+                                  if (totalPresentMarks > 0)
+                                    Expanded(
+                                      flex: totalPresentMarks,
+                                      child: Container(color: AppTheme.success),
+                                    ),
+                                  if (totalAbsentMarks > 0)
+                                    Expanded(
+                                      flex: totalAbsentMarks,
+                                      child: Container(color: AppTheme.danger),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  children: relevantDays.isEmpty
+                      ? [
+                          Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Text(
+                              'No days have occurred yet for this week.',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ]
+                      : relevantDays.map((day) => _buildDayTile(week, day, theme)).toList(),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -403,7 +424,9 @@ class _AbsenteeismState extends State<Absenteeism> {
     return true;
   }
 
+  // A day is a ruled row inside the week, not a box of its own.
   Widget _buildDayTile(_WeekData week, DateTime day, ThemeData theme) {
+    final scheme = theme.colorScheme;
     final weekday = _weekdayOrder[day.weekday - 1];
     final present = week.presentByDay[weekday] ?? <String>{};
 
@@ -417,65 +440,94 @@ class _AbsenteeismState extends State<Absenteeism> {
     final isToday = _isSameDate(day, DateTime.now());
 
     return Container(
-      margin: const EdgeInsets.only(top: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        border: Border(top: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.7))),
       ),
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          leading: Icon(
-            isToday ? Icons.today_rounded : Icons.event_note_rounded,
-            color: theme.colorScheme.primary,
-          ),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          shape: const Border(),
+          collapsedShape: const Border(),
           title: Row(
             children: [
-              Text(
-                '$weekday, $dateLabel',
-                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+              Flexible(
+                child: Text(
+                  '$weekday, $dateLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
               ),
               if (isToday) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary,
-                    borderRadius: BorderRadius.circular(20),
+                    color: scheme.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text('Today', style: TextStyle(color: Colors.white, fontSize: 10)),
+                  child: Text(
+                    'TODAY',
+                    style: TextStyle(
+                      color: scheme.primary,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
                 ),
               ],
             ],
           ),
-          subtitle: Text(
-            '${presentRiders.length} present · ${absentRiders.length} absent',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          subtitle: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${presentRiders.length} present',
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+                TextSpan(
+                  text: '  ·  ',
+                  style: TextStyle(color: scheme.outline),
+                ),
+                TextSpan(
+                  text: '${absentRiders.length} absent',
+                  style: TextStyle(
+                    color: absentRiders.isEmpty ? scheme.onSurfaceVariant : AppTheme.danger,
+                    fontWeight: absentRiders.isEmpty ? FontWeight.w400 : FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            style: theme.textTheme.bodySmall,
           ),
           children: [
             if (applicableRiders.isEmpty)
-              Text(
-                'No riders were scheduled for this day.',
-                style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'No riders were scheduled for this day.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+                ),
               )
             else ...[
-              _buildRiderGroup(
-                theme: theme,
-                title: 'Present',
-                icon: Icons.check_circle_rounded,
-                color: AppTheme.success,
-                riders: presentRiders,
-              ),
-              const SizedBox(height: 14),
+              // Absentees first: they are what this report is for.
               _buildRiderGroup(
                 theme: theme,
                 title: 'Absent',
-                icon: Icons.cancel_rounded,
                 color: AppTheme.danger,
                 riders: absentRiders,
+                emphasised: true,
+              ),
+              const SizedBox(height: 12),
+              _buildRiderGroup(
+                theme: theme,
+                title: 'Present',
+                color: AppTheme.success,
+                riders: presentRiders,
+                emphasised: false,
               ),
             ],
           ],
@@ -487,21 +539,28 @@ class _AbsenteeismState extends State<Absenteeism> {
   Widget _buildRiderGroup({
     required ThemeData theme,
     required String title,
-    required IconData icon,
     required Color color,
     required List<_RiderInfo> riders,
+    required bool emphasised,
   }) {
+    final scheme = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 6),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
             Text(
-              '$title (${riders.length})',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+              '${title.toUpperCase()}  ${riders.length}',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1,
                 color: color,
               ),
             ),
@@ -511,27 +570,37 @@ class _AbsenteeismState extends State<Absenteeism> {
         riders.isEmpty
             ? Text(
                 'None',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
+                style: theme.textTheme.bodySmall?.copyWith(color: scheme.outline),
               )
             : Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: 6,
+                runSpacing: 6,
                 children: riders
-                    .map((r) => Chip(
-                          avatar: CircleAvatar(
-                            backgroundColor: color.withValues(alpha: 0.15),
-                            child: Text(
-                              r.userName.isNotEmpty ? r.userName[0].toUpperCase() : '?',
-                              style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
+                    .map(
+                      (r) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          // Absentees get the tint; present riders stay neutral.
+                          color: emphasised
+                              ? color.withValues(alpha: 0.10)
+                              : scheme.surfaceContainer,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: emphasised
+                                ? color.withValues(alpha: 0.35)
+                                : scheme.outlineVariant,
                           ),
-                          label: Text(r.userName),
-                          backgroundColor: color.withValues(alpha: 0.08),
-                          side: BorderSide(color: color.withValues(alpha: 0.3)),
-                        ))
+                        ),
+                        child: Text(
+                          r.userName,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: emphasised ? FontWeight.w700 : FontWeight.w500,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    )
                     .toList(),
               ),
       ],
@@ -543,12 +612,19 @@ class _AbsenteeismState extends State<Absenteeism> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 8,
-          height: 8,
+          width: 7,
+          height: 7,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: TextStyle(fontSize: 12, color: color)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
@@ -558,34 +634,24 @@ class _AbsenteeismState extends State<Absenteeism> {
   }
 
   Widget _buildEmptyState(ThemeData theme) {
+    final scheme = theme.colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(40),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.event_available_rounded,
-                size: 72,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 28),
+            Icon(Icons.event_available_rounded, size: 56, color: scheme.outline),
+            const SizedBox(height: 16),
             Text(
-              'No Attendance Data Yet',
-              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              'No attendance data yet',
+              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             Text(
               'Absenteeism will populate automatically once riders start clocking out.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],
         ),
@@ -600,8 +666,8 @@ class _AbsenteeismState extends State<Absenteeism> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline_rounded, size: 64, color: theme.colorScheme.error),
-            const SizedBox(height: 20),
+            Icon(Icons.error_outline_rounded, size: 56, color: theme.colorScheme.error),
+            const SizedBox(height: 16),
             Text(
               _error ?? 'Something went wrong.',
               textAlign: TextAlign.center,
@@ -610,7 +676,7 @@ class _AbsenteeismState extends State<Absenteeism> {
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: _load,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
             ),
           ],

@@ -41,9 +41,21 @@ import 'pages/settings.dart';
 import 'pages/swap_batteries.dart';
 import 'services/notifier.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Draw edge-to-edge: the app extends under the status bar (and gesture bar)
+  // instead of being cut by them. Bars are made transparent in the theme.
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // Paint the branded launcher screen immediately. Heavy startup work
+  // (Firebase, notifications) runs behind it - see _Bootstrap below.
+  runApp(const BillkMotolinkApp());
+}
+
+/// Same startup work main() used to do before runApp, unchanged and in the
+/// same order - it just runs while the launcher screen is already visible.
+Future<void> _initializeServices() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -53,8 +65,6 @@ void main() async {
   );
 
   await NotificationService().initialize();
-
-  runApp(const BillkMotolinkApp());
 }
 
 Future<bool> requestAllPermissions() async {
@@ -88,13 +98,59 @@ class BillkMotolinkApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       theme: _lightTheme(),
       darkTheme: _darkTheme(),
-      home: const AuthGate(),
+      builder: (context, child) {
+        // Keep status-bar icons readable on both light and dark themes.
+        final brightness = Theme.of(context).brightness;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: AppTheme.overlayFor(brightness),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: const _Bootstrap(),
     );
   }
 
   ThemeData _lightTheme() => AppTheme.light();
 
   ThemeData _darkTheme() => AppTheme.dark();
+}
+
+/// Shows the launcher screen until services are ready, then hands over to
+/// AuthGate. There is never a frame without content.
+class _Bootstrap extends StatefulWidget {
+  const _Bootstrap();
+
+  @override
+  State<_Bootstrap> createState() => _BootstrapState();
+}
+
+class _BootstrapState extends State<_Bootstrap> {
+  late Future<void> _init;
+
+  @override
+  void initState() {
+    super.initState();
+    _init = _initializeServices();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _init,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return SplashScreen(
+            message: 'Could not start the app. Check your connection.',
+            onRetry: () => setState(() => _init = _initializeServices()),
+          );
+        }
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SplashScreen();
+        }
+        return const AuthGate();
+      },
+    );
+  }
 }
 
 class AuthGate extends StatelessWidget {
@@ -124,7 +180,7 @@ class AuthGate extends StatelessWidget {
 }
 
 class MainScaffold extends StatefulWidget {
-  final VoidCallback onLogout;
+  final Future<void> Function() onLogout;
   const MainScaffold({
     super.key,
     required this.onLogout,
@@ -148,6 +204,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
   bool _isExpanded = false;
   Timer? _animationTimer;
   String? _ourUID;
+  bool _isLoggingOut = false;
   StreamSubscription<DocumentSnapshot>? _userActiveListener;
 
   // Filled by the single user-doc listener in _setupUserActiveListener(). Because
@@ -390,8 +447,30 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
   }
 
   Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    widget.onLogout();
+    if (_isLoggingOut) return;
+    setState(() => _isLoggingOut = true);
+
+    String? timestampError;
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(uid).set(
+            {'lastLogout': FieldValue.serverTimestamp()},
+            SetOptions(merge: true),
+          );
+        } catch (error) {
+          timestampError = error.toString();
+        }
+      }
+
+      await widget.onLogout();
+      if (timestampError != null) {
+        ToastService.error('Logged out, but could not save logout time.');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoggingOut = false);
+    }
   }
 
   @override
@@ -420,9 +499,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
   }
 
   Color _getDrawerContentBg(ThemeData theme) {
-    return theme.brightness == Brightness.dark
-        ? Colors.grey.shade900
-        : Colors.white;
+    return theme.colorScheme.surface;
   }
 
   /// Checks connectivity in the background and only calls setState when the
@@ -496,15 +573,25 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              onTap: _logout,
-              child: const Row(
+              onTap: _isLoggingOut ? null : _logout,
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.logout, color: Colors.white, size: 20),
-                  SizedBox(width: 12),
+                  if (_isLoggingOut)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  else
+                    const Icon(Icons.logout, color: Colors.white, size: 20),
+                  const SizedBox(width: 12),
                   Text(
-                    'Logout',
-                    style: TextStyle(
+                    _isLoggingOut ? 'Logging out...' : 'Logout',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -525,18 +612,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
     final isDark = theme.brightness == Brightness.dark;
 
     if (_isCheckingVersion) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Checking app version...'),
-            ],
-          ),
-        ),
-      );
+      return const SplashScreen(message: 'Checking for updates...');
     }
 
     if (_appOutdated) {
@@ -553,28 +629,23 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
             title: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.primary.withValues(alpha: 0.8),
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+                color: theme.colorScheme.primary,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 _titles[_selectedIndex],
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimary,
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
                 ),
               ),
             ),
             elevation: 0,
-            backgroundColor: theme.colorScheme.surface.withValues(alpha: isDark ? 0.95 : 0.9),
-            shadowColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+            scrolledUnderElevation: 0,
+            backgroundColor: theme.scaffoldBackgroundColor,
+            surfaceTintColor: Colors.transparent,
+            systemOverlayStyle: AppTheme.overlayFor(theme.brightness),
             actions: [
               Builder(
                 builder: (context) {
@@ -589,9 +660,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
                           icon: Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [theme.colorScheme.primary.withValues(alpha: 0.2), Colors.transparent],
-                              ),
+                              color: theme.colorScheme.primary.withValues(alpha: 0.10),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -630,7 +699,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
                                           colors: [Colors.red.shade500, Colors.red.shade700],
                                         ),
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 2),
+                                        border: Border.all(color: theme.scaffoldBackgroundColor, width: 2),
                                         boxShadow: [
                                           BoxShadow(
                                             color: Colors.red.withValues(alpha: 0.4),
@@ -671,94 +740,53 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
             child: SafeArea(
               child: Column(
                 children: [
-                  // ---------------------------------------------------------------
-                  // Header: flat two-stop brand gradient. Logo keeps its own
-                  // rounded-square shape - clipped explicitly with ClipRRect rather
-                  // than relying on the PNG's alpha. The shadow is a separate
-                  // rounded-rect Container behind it with no fill color, sized and
-                  // radius-matched to the image.
-                  // ---------------------------------------------------------------
+                  // Compact sticky header: logo on the left, rank on the right,
+                  // one slim row with a hairline underneath.
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(24, 36, 24, 28),
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.primary.withValues(alpha: 0.82),
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(28),
-                        bottomRight: Radius.circular(28),
+                      border: Border(
+                        bottom: BorderSide(color: theme.colorScheme.outlineVariant),
                       ),
                     ),
-                    child: Column(
+                    child: Row(
                       children: [
-                        Builder(
-                          builder: (context) {
-                            // Match this to your actual asset's corner radius
-                            // (proportionally) so the clip and the shadow line up
-                            // with the art instead of guessing.
-                            const double logoSize = 80;
-                            const double logoRadius = 18;
-
-                            return Container(
-                              width: logoSize,
-                              height: logoSize,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(logoRadius),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.28),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: Image.asset(
+                            'assets/logo.png',
+                            width: 42,
+                            height: 42,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 42,
+                              height: 42,
+                              color: theme.colorScheme.primary,
+                              child: Icon(
+                                Icons.electric_bike_rounded,
+                                color: theme.colorScheme.onPrimary,
+                                size: 22,
                               ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(logoRadius),
-                                child: Image.asset(
-                                  'assets/logo.png',
-                                  fit: BoxFit.cover,
-                                  width: logoSize,
-                                  height: logoSize,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    color: Colors.white.withValues(alpha: 0.15),
-                                    child: const Icon(
-                                      Icons.school_rounded,
-                                      color: Colors.white,
-                                      size: 32,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 14),
-                        Builder(
-                          builder: (context) {
-                            final userRank = _userRank;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Text(
-                                userRank.toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
-                            );
-                          },
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _userRank.toUpperCase(),
+                            style: TextStyle(
+                              color: theme.colorScheme.onPrimaryContainer,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.9,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -775,7 +803,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
                         final visibleIndices = _getVisibleIndices(_userRank);
 
                         return ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                           itemCount: visibleIndices.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 6),
                           itemBuilder: (context, listIndex) {
@@ -856,7 +884,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
             ),
           ),
 
-          body: _pages[_selectedIndex],
+          body: SafeArea(top: false, child: _pages[_selectedIndex]),
         ),
 
         // Offline overlay: sits ON TOP of the scaffold instead of replacing it.
