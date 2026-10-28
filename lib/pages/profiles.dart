@@ -1,4 +1,6 @@
 import 'package:billkmotolinkltd/services/toast_service.dart';
+import 'package:billkmotolinkltd/theme/app_theme.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -165,35 +167,29 @@ class _ProfilesState extends State<Profiles> {
   // 1. Double-check that this line is added to the top of your _ProfilesState class:
   final Set<String> _expandedUserIds = {};
 
+  String _money(num n) => NumberFormat('#,##0').format(n);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Workforce & Persons',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        foregroundColor: theme.colorScheme.onSurface,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.account_balance_wallet, size: 18),
-              label: const Text('Settle All', style: TextStyle(fontSize: 14)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                elevation: 2,
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              icon: const Icon(Icons.account_balance_wallet_rounded, size: 17),
+              label: const Text('Settle All'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                minimumSize: const Size(0, 36),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: _settlePendingAmounts,
             ),
@@ -227,7 +223,7 @@ class _ProfilesState extends State<Profiles> {
           }
 
           return ListView.builder(
-            padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.paddingOf(context).bottom + 32),
+            padding: EdgeInsets.fromLTRB(12, 4, 12, MediaQuery.paddingOf(context).bottom + 24),
             itemCount: visibleUsers.length,
             itemBuilder: (_, index) {
               final doc = visibleUsers[index];
@@ -236,8 +232,8 @@ class _ProfilesState extends State<Profiles> {
               final isExpanded = _expandedUserIds.contains(uid);
 
               return _buildUserCard(
-                uid, 
-                user, 
+                uid,
+                user,
                 theme,
                 isExpanded: isExpanded,
                 onToggleExpand: () {
@@ -257,300 +253,331 @@ class _ProfilesState extends State<Profiles> {
     );
   }
 
-  // 2. Updated expandable card builder signature
+  Widget _sectionLabel(ThemeData theme, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 16, 2, 8),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.1,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  /// Hairline-ruled group of rows inside a user card.
+  Widget _ruled(ThemeData theme, List<Widget> rows) {
+    final scheme = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (int i = 0; i < rows.length; i++) ...[
+            if (i > 0) Divider(height: 1, color: scheme.outlineVariant.withValues(alpha: 0.7)),
+            rows[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _contactLine(ThemeData theme, IconData icon, String text, {VoidCallback? onTap, Color? color}) {
+    final scheme = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: scheme.outline),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: color ?? scheme.onSurfaceVariant,
+                  fontWeight: onTap != null ? FontWeight.w600 : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildUserCard(
-    String uid, 
-    Map<String, dynamic> user, 
+    String uid,
+    Map<String, dynamic> user,
     ThemeData theme, {
     required bool isExpanded,
     required VoidCallback onToggleExpand,
   }) {
-    final surfaceColor = theme.colorScheme.surface;
-    final onSurfaceColor = theme.colorScheme.onSurface;
-    final onSurfaceVariant = theme.colorScheme.onSurfaceVariant;
-    
+    final scheme = theme.colorScheme;
+
     final String userRank = _safeToString(user['userRank'], 'Unknown').trim().toUpperCase();
     final bool isPrivileged = {'CEO', 'SYSTEMS, IT', 'MANAGER'}.contains(userRank);
     final bool isActive = _toBool(user['isActive']);
-    
+
     final String rawPhone = _safeToString(user['phoneNumber'], 'No phone');
     final String formatted = _formatKenyanPhone(rawPhone);
 
-    bool canCall = formatted.isNotEmpty && formatted != "No phone";
-    String dialNumber = canCall ? "tel:$formatted" : "";
+    final bool canCall = formatted.isNotEmpty && formatted != 'No phone';
+    final String dialNumber = canCall ? 'tel:$formatted' : '';
 
-    final Color nameColor = isActive ? onSurfaceColor : theme.colorScheme.error;
+    final Color accent = isPrivileged ? scheme.tertiary : scheme.primary;
+    final Color spine = !isActive ? scheme.error : accent;
+    final Color nameColor = isActive ? scheme.onSurface : scheme.error;
 
-    final List<Color> gradientColors = isPrivileged
-        ? [
-            theme.colorScheme.tertiaryContainer.withValues(alpha: 0.35),
-            theme.colorScheme.surfaceContainerHigh,
-          ]
-        : [
-            surfaceColor,
-            theme.colorScheme.surfaceContainerHighest,
-          ];
+    final num pending = _safeNum(user['pendingAmount'], 0);
 
-    final Color shadowColor = isPrivileged
-        ? theme.colorScheme.tertiary.withValues(alpha: 0.15)
-        : theme.colorScheme.primary.withValues(alpha: 0.1);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: isPrivileged ? 8 : 4,
-      shadowColor: shadowColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(24),
-        side: isPrivileged 
-            ? BorderSide(color: theme.colorScheme.tertiary.withValues(alpha: 0.25), width: 1.5)
-            : BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4), width: 1),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
       ),
-      color: surfaceColor,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onToggleExpand,
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: gradientColors,
-            ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Inactive Warning Banner
-                if (!isActive) ...[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, size: 14, color: theme.colorScheme.onErrorContainer),
-                        const SizedBox(width: 6),
-                        Text(
-                          "INACTIVE ACCOUNT",
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onErrorContainer,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // Header Data (Always visible)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: isPrivileged
-                            ? theme.colorScheme.tertiary.withValues(alpha: 0.15)
-                            : theme.colorScheme.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        isPrivileged ? Icons.verified_user : Icons.person, 
-                        color: isPrivileged ? theme.colorScheme.tertiary : theme.colorScheme.primary, 
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 4, color: spine),
+            Expanded(
+              child: InkWell(
+                onTap: onToggleExpand,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header (always visible)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _safeToString(user['userName'], 'Unnamed User'),
+                          CircleAvatar(
+                            radius: 19,
+                            backgroundColor: accent.withValues(alpha: 0.14),
+                            child: Text(
+                              _safeToString(user['userName'], '?').isEmpty
+                                  ? '?'
+                                  : _safeToString(user['userName'], '?')[0].toUpperCase(),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: accent,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        _safeToString(user['userName'], 'Unnamed User'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: nameColor,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isPrivileged) ...[
+                                      const SizedBox(width: 6),
+                                      _tag(theme, 'ADMIN', scheme.tertiary),
+                                    ],
+                                    if (!isActive) ...[
+                                      const SizedBox(width: 6),
+                                      _tag(theme, 'INACTIVE', scheme.error),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: _safeToString(user['userRank'], 'Unknown'),
+                                        style: TextStyle(
+                                          color: accent,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (!isPrivileged && pending > 0)
+                                        TextSpan(
+                                          text: '   Pending KSh ${_money(pending)}',
+                                          style: TextStyle(
+                                            color: scheme.error,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  style: theme.textTheme.bodySmall,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: nameColor,
-                                  ),
-                                ),
-                              ),
-                              if (isPrivileged) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.tertiary,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    "ADMIN",
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onTertiary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
-                                    ),
-                                  ),
                                 ),
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _safeToString(user['userRank'], 'Unknown'),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: isPrivileged ? theme.colorScheme.tertiary : theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
                             ),
+                          ),
+                          AnimatedRotation(
+                            turns: isExpanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(Icons.keyboard_arrow_down_rounded, color: scheme.outline),
                           ),
                         ],
                       ),
-                    ),
-                    Icon(
-                      isExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: onSurfaceVariant,
-                    ),
-                  ],
-                ),
 
-                // Animated Transition for expanding body
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.fastOutSlowIn,
-                  child: isExpanded
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 16),
-                            Divider(
-                              height: 1, 
-                              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
-                            ),
-                            const SizedBox(height: 16),
-
-                            Text(
-                              _safeToString(user['email'], 'No email'),
-                              style: theme.textTheme.bodyMedium?.copyWith(color: onSurfaceVariant),
-                            ),
-                            const SizedBox(height: 4),
-                            GestureDetector(
-                              onTap: canCall
-                                  ? () async {
-                                      final Uri uri = Uri.parse(dialNumber);
-                                      if (await canLaunchUrl(uri)) {
-                                        await launchUrl(uri);
-                                      } else {
-                                        ToastService.error("Could not launch dialer");
-                                      }
-                                    }
-                                  : null,
-                              child: Text(
-                                formatted,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: canCall
-                                      ? (isPrivileged ? theme.colorScheme.tertiary : theme.colorScheme.primary)
-                                      : onSurfaceVariant,
-                                  fontWeight: canCall ? FontWeight.w600 : null,
-                                ),
-                              ),
-                            ),
-
-                            if (!isPrivileged) ...[
-                              const SizedBox(height: 20),
-                              _EditableNumberField(
-                                label: 'Daily Target',
-                                value: _safeNum(user['dailyTarget'], 0).toInt(),
-                                icon: Icons.trending_up,
-                                color: theme.colorScheme.primary,
-                                theme: theme,
-                                onUpdate: (v) => _updateField(uid, 'dailyTarget', v),
-                              ),
-                              const SizedBox(height: 12),
-                              _EditableNumberField(
-                                label: 'Sunday Target',
-                                value: _safeNum(user['sundayTarget'], 0).toInt(),
-                                icon: Icons.calendar_today,
-                                color: theme.colorScheme.tertiary,
-                                theme: theme,
-                                onUpdate: (v) => _updateField(uid, 'sundayTarget', v),
-                              ),
-                              const SizedBox(height: 12),
-                              _PendingAmountField(
-                                label: 'Pending Amount',
-                                value: _safeNum(user['pendingAmount'], 0).toInt(),
-                                icon: Icons.payment,
-                                color: theme.colorScheme.secondary,
-                                theme: theme,
-                                uid: uid,
-                                onValueUpdated: (v) => {},
-                              ),
-                              const SizedBox(height: 12),
-                              _EditableNumberField(
-                                label: 'In-App Balance',
-                                value: _safeNum(user['currentInAppBalance'], 0).toInt(),
-                                icon: Icons.account_balance_wallet,
-                                color: Colors.green,
-                                theme: theme,
-                                onUpdate: (v) => _updateField(uid, 'currentInAppBalance', v),
-                              ),
-                              const SizedBox(height: 20),
-                              Column(
+                      // Expanded body
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.fastOutSlowIn,
+                        alignment: Alignment.topCenter,
+                        child: isExpanded
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _EditableBoolField(
-                                    label: 'Active',
-                                    value: isActive,
-                                    icon: Icons.power_settings_new,
-                                    color: Colors.green,
-                                    theme: theme,
-                                    onUpdate: (v) => _updateField(uid, 'isActive', v),
-                                  ),
                                   const SizedBox(height: 12),
-                                  _EditableBoolField(
-                                    label: 'Verified',
-                                    value: _toBool(user['isVerified']),
-                                    icon: Icons.verified,
-                                    color: theme.colorScheme.primary,
-                                    theme: theme,
-                                    onUpdate: (v) => _updateField(uid, 'isVerified', v),
+                                  Divider(height: 1, color: scheme.outlineVariant),
+                                  const SizedBox(height: 8),
+
+                                  // Contact - always shown, "Not set" when missing
+                                  _contactLine(
+                                    theme,
+                                    Icons.email_outlined,
+                                    _safeToString(user['email'], '').isEmpty
+                                        ? 'No email'
+                                        : _safeToString(user['email'], 'No email'),
                                   ),
-                                  const SizedBox(height: 12),
-                                  _EditableBoolField(
-                                    label: 'Clocked In',
-                                    value: _toBool(user['isClockedIn']),
-                                    icon: Icons.login,
-                                    color: theme.colorScheme.primary,
-                                    theme: theme,
-                                    onUpdate: (v) => {},
+                                  _contactLine(
+                                    theme,
+                                    Icons.phone_outlined,
+                                    formatted,
+                                    color: canCall ? accent : null,
+                                    onTap: canCall
+                                        ? () async {
+                                            final Uri uri = Uri.parse(dialNumber);
+                                            if (await canLaunchUrl(uri)) {
+                                              await launchUrl(uri);
+                                            } else {
+                                              ToastService.error('Could not launch dialer');
+                                            }
+                                          }
+                                        : null,
                                   ),
-                                  const SizedBox(height: 12),
-                                  _EditableBoolField(
-                                    label: 'Working on Sunday',
-                                    value: _toBool(user['isWorkingOnSunday']),
-                                    icon: Icons.calendar_month,
-                                    color: theme.colorScheme.tertiary,
-                                    theme: theme,
-                                    onUpdate: (v) => _updateField(uid, 'isWorkingOnSunday', v),
-                                  ),
+
+                                  if (!isPrivileged) ...[
+                                    _sectionLabel(theme, 'Targets & money'),
+                                    _ruled(theme, [
+                                      _EditableNumberField(
+                                        label: 'Daily Target',
+                                        value: _safeNum(user['dailyTarget'], 0).toInt(),
+                                        isSet: user['dailyTarget'] != null,
+                                        icon: Icons.flag_rounded,
+                                        onUpdate: (v) => _updateField(uid, 'dailyTarget', v),
+                                      ),
+                                      _EditableNumberField(
+                                        label: 'Sunday Target',
+                                        value: _safeNum(user['sundayTarget'], 0).toInt(),
+                                        isSet: user['sundayTarget'] != null,
+                                        icon: Icons.calendar_today_rounded,
+                                        onUpdate: (v) => _updateField(uid, 'sundayTarget', v),
+                                      ),
+                                      _PendingAmountField(
+                                        label: 'Pending Amount',
+                                        value: _safeNum(user['pendingAmount'], 0).toInt(),
+                                        isSet: user['pendingAmount'] != null,
+                                        icon: Icons.payments_rounded,
+                                        uid: uid,
+                                        onValueUpdated: (v) => {},
+                                      ),
+                                      _EditableNumberField(
+                                        label: 'In-App Balance',
+                                        value: _safeNum(user['currentInAppBalance'], 0).toInt(),
+                                        isSet: user['currentInAppBalance'] != null,
+                                        icon: Icons.account_balance_wallet_rounded,
+                                        onUpdate: (v) => _updateField(uid, 'currentInAppBalance', v),
+                                      ),
+                                    ]),
+
+                                    _sectionLabel(theme, 'Account'),
+                                    _ruled(theme, [
+                                      _EditableBoolField(
+                                        label: 'Active',
+                                        value: isActive,
+                                        isSet: user['isActive'] != null,
+                                        icon: Icons.power_settings_new_rounded,
+                                        onUpdate: (v) => _updateField(uid, 'isActive', v),
+                                      ),
+                                      _EditableBoolField(
+                                        label: 'Verified',
+                                        value: _toBool(user['isVerified']),
+                                        isSet: user['isVerified'] != null,
+                                        icon: Icons.verified_rounded,
+                                        onUpdate: (v) => _updateField(uid, 'isVerified', v),
+                                      ),
+                                      // Clocked In is set by the clock-in / clock-out flow,
+                                      // so it is shown read-only here.
+                                      _EditableBoolField(
+                                        label: 'Clocked In',
+                                        value: _toBool(user['isClockedIn']),
+                                        isSet: user['isClockedIn'] != null,
+                                        icon: Icons.login_rounded,
+                                        readOnly: true,
+                                        onUpdate: (v) => {},
+                                      ),
+                                      _EditableBoolField(
+                                        label: 'Working on Sunday',
+                                        value: _toBool(user['isWorkingOnSunday']),
+                                        isSet: user['isWorkingOnSunday'] != null,
+                                        icon: Icons.calendar_month_rounded,
+                                        onUpdate: (v) => _updateField(uid, 'isWorkingOnSunday', v),
+                                      ),
+                                    ]),
+                                  ],
                                 ],
-                              ),
-                            ],
-                          ],
-                        )
-                      : const SizedBox.shrink(),
+                              )
+                            : const SizedBox(width: double.infinity),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tag(ThemeData theme, String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
         ),
       ),
     );
@@ -562,19 +589,13 @@ class _ProfilesState extends State<Profiles> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.people_outline,
-            size: 80,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 24),
+          Icon(Icons.people_outline_rounded, size: 56, color: theme.colorScheme.outline),
+          const SizedBox(height: 16),
           Text(
             'No users found',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Users will appear here when added',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -592,19 +613,13 @@ class _ProfilesState extends State<Profiles> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.admin_panel_settings,
-            size: 80,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 24),
+          Icon(Icons.admin_panel_settings_outlined, size: 56, color: theme.colorScheme.outline),
+          const SizedBox(height: 16),
           Text(
             'No eligible users',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Only non-admin users are shown',
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -615,7 +630,6 @@ class _ProfilesState extends State<Profiles> {
       ),
     );
   }
-
 
   Future<bool> _showConfirmDialog({
     required String title,
@@ -629,13 +643,14 @@ class _ProfilesState extends State<Profiles> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.warning_amber, 
-                 color: theme.colorScheme.error),
+            Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
             const SizedBox(width: 12),
-            Text(title, 
-                 style: theme.textTheme.titleMedium?.copyWith(
-                   fontWeight: FontWeight.w600,
-                 )),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
           ],
         ),
         content: Text(content, style: theme.textTheme.bodyMedium),
@@ -645,7 +660,7 @@ class _ProfilesState extends State<Profiles> {
               foregroundColor: theme.colorScheme.onSurfaceVariant,
             ),
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -659,24 +674,93 @@ class _ProfilesState extends State<Profiles> {
       ),
     ) ?? false;
   }
+}
 
+// ── Row widgets ────────────────────────────────────────────────────────────
+// Each is a plain ruled row: icon, label, value, and an affordance on the
+// right showing whether it can be edited.
+
+class _RowShell extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Widget value;
+  final Widget trailing;
+  final VoidCallback? onTap;
+
+  const _RowShell({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: scheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            value,
+            const SizedBox(width: 8),
+            trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Widget _numberValue(BuildContext context, int value, bool isSet) {
+  final scheme = Theme.of(context).colorScheme;
+  if (!isSet) {
+    return Text(
+      'Not set',
+      style: TextStyle(
+        fontSize: 13,
+        fontStyle: FontStyle.italic,
+        color: scheme.outline,
+      ),
+    );
+  }
+  return Text(
+    NumberFormat('#,##0').format(value),
+    style: TextStyle(
+      fontSize: 15,
+      fontWeight: FontWeight.w800,
+      color: scheme.onSurface,
+    ),
+  );
 }
 
 class _PendingAmountField extends StatefulWidget {
   final String label;
   final int value;
+  final bool isSet;
   final IconData icon;
-  final Color color;
-  final ThemeData theme;
   final String uid; // Firestore document ID of user
   final Function(int) onValueUpdated; // optional callback if you need it higher up
 
   const _PendingAmountField({
     required this.label,
     required this.value,
+    required this.isSet,
     required this.icon,
-    required this.color,
-    required this.theme,
     required this.uid,
     required this.onValueUpdated,
   });
@@ -703,36 +787,37 @@ class _PendingAmountFieldState extends State<_PendingAmountField> {
   }
 
   Future<void> _showApproveDialog() async {
+    final theme = Theme.of(context);
     final controller = TextEditingController(text: _value.toString());
 
     final int? newValue = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(widget.label, style: widget.theme.textTheme.titleMedium),
+        title: Text(widget.label, style: theme.textTheme.titleMedium),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Enter the amount you want to approve:",
-              style: widget.theme.textTheme.bodyMedium,
+              'Enter the amount you want to approve:',
+              style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
               autofocus: true,
-              style: widget.theme.textTheme.bodyLarge,
+              style: theme.textTheme.bodyLarge,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: widget.theme.colorScheme.primary),
+                  borderSide: BorderSide(color: theme.colorScheme.primary),
                 ),
-                hintText: "0",
+                hintText: '0',
               ),
             ),
           ],
@@ -740,13 +825,13 @@ class _PendingAmountFieldState extends State<_PendingAmountField> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: widget.theme.textTheme.bodyMedium),
+            child: Text('Cancel', style: theme.textTheme.bodyMedium),
           ),
           ElevatedButton(
             onPressed: () {
               final input = int.tryParse(controller.text.trim());
               if (input == null || input <= 0) {
-                ToastService.error("Enter a valid positive number to approve");
+                ToastService.error('Enter a valid positive number to approve');
                 return;
               }
 
@@ -755,7 +840,7 @@ class _PendingAmountFieldState extends State<_PendingAmountField> {
 
               Navigator.pop(context, newPending);
             },
-            child: Text('Approve'),
+            child: const Text('Approve'),
           ),
         ],
       ),
@@ -779,143 +864,63 @@ class _PendingAmountFieldState extends State<_PendingAmountField> {
         // Propagate to parent if needed
         widget.onValueUpdated(newValue);
       } catch (e) {
-        ToastService.error("Failed to update pending amount: $e");
+        ToastService.error('Failed to update pending amount: $e');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => _showApproveDialog(),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: widget.theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: widget.theme.colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: widget.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+    final scheme = Theme.of(context).colorScheme;
+    return _RowShell(
+      icon: widget.icon,
+      label: widget.label,
+      onTap: _showApproveDialog,
+      value: _value > 0
+          ? Text(
+              NumberFormat('#,##0').format(_value),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: scheme.error,
               ),
-              child: Icon(widget.icon, color: widget.color, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.label,
-                    style: widget.theme.textTheme.bodyMedium?.copyWith(
-                      color: widget.theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _value.toString(),
-                    style: widget.theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: widget.theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: widget.theme.colorScheme.onSurfaceVariant,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
+            )
+          : _numberValue(context, _value, widget.isSet),
+      // Pending is cleared by approving an amount, not typed freely
+      trailing: Icon(Icons.price_check_rounded, size: 18, color: scheme.outline),
     );
   }
 }
 
-// Updated Editable Widgets with Theme Support
 class _EditableNumberField extends StatelessWidget {
   final String label;
   final int value;
+  final bool isSet;
   final IconData icon;
-  final Color color;
-  final ThemeData theme;
   final Function(int) onUpdate;
 
   const _EditableNumberField({
     required this.label,
     required this.value,
+    required this.isSet,
     required this.icon,
-    required this.color,
-    required this.theme,
     required this.onUpdate,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final scheme = Theme.of(context).colorScheme;
+    return _RowShell(
+      icon: icon,
+      label: label,
       onTap: () => _showEditDialog(context),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: theme.colorScheme.outlineVariant,
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, 
-                       style: theme.textTheme.bodyMedium?.copyWith(
-                         color: theme.colorScheme.onSurfaceVariant,
-                         fontWeight: FontWeight.w500,
-                       )),
-                  const SizedBox(height: 4),
-                  Text(
-                    value.toString(),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.edit, 
-                 color: theme.colorScheme.onSurfaceVariant, 
-                 size: 20),
-          ],
-        ),
-      ),
+      value: _numberValue(context, value, isSet),
+      trailing: Icon(Icons.edit_outlined, size: 18, color: scheme.outline),
     );
   }
 
   void _showEditDialog(BuildContext context) {
+    final theme = Theme.of(context);
     final controller = TextEditingController(text: value.toString());
     showDialog<int>(
       context: context,
@@ -947,7 +952,7 @@ class _EditableNumberField extends StatelessWidget {
               final newValue = int.tryParse(controller.text) ?? value;
               Navigator.pop(context, newValue);
             },
-            child: Text('Update'),
+            child: const Text('Update'),
           ),
         ],
       ),
@@ -962,73 +967,90 @@ class _EditableNumberField extends StatelessWidget {
 class _EditableBoolField extends StatelessWidget {
   final String label;
   final bool value;
+  final bool isSet;
   final IconData icon;
-  final Color color;
-  final ThemeData theme;
+  final bool readOnly;
   final Function(bool) onUpdate;
 
   const _EditableBoolField({
     required this.label,
     required this.value,
+    required this.isSet,
     required this.icon,
-    required this.color,
-    required this.theme,
     required this.onUpdate,
+    this.readOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onUpdate(!value),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: value 
-            ? color.withValues(alpha: 0.1) 
-            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: value 
-              ? color.withValues(alpha: 0.3) 
-              : theme.colorScheme.outlineVariant,
-          ),
-        ),
-        child: Row(
+    final scheme = Theme.of(context).colorScheme;
+
+    // Auto-managed flag: a status readout with an AUTO tag, not a control.
+    if (readOnly) {
+      final tone = value ? AppTheme.success : scheme.onSurfaceVariant;
+      return _RowShell(
+        icon: icon,
+        label: label,
+        value: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: value ? 0.2 : 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: color, size: 20),
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, 
-                       style: theme.textTheme.bodyMedium?.copyWith(
-                         color: theme.colorScheme.onSurfaceVariant,
-                         fontWeight: FontWeight.w500,
-                       )),
-                  Text(
-                    value ? 'True' : 'False',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: value ? Colors.green.shade700 : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+            const SizedBox(width: 6),
+            Text(
+              !isSet ? 'Not set' : (value ? 'Yes' : 'No'),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: !isSet ? scheme.outline : tone,
               ),
-            ),
-            Icon(
-              value ? Icons.toggle_on : Icons.toggle_off,
-              color: value ? Colors.green : theme.colorScheme.onSurfaceVariant,
-              size: 28,
             ),
           ],
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            'AUTO',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8,
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return _RowShell(
+      icon: icon,
+      label: label,
+      onTap: () => onUpdate(!value),
+      value: Text(
+        !isSet ? 'Not set' : (value ? 'On' : 'Off'),
+        style: TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+          fontStyle: isSet ? FontStyle.normal : FontStyle.italic,
+          color: !isSet
+              ? scheme.outline
+              : (value ? AppTheme.success : scheme.onSurfaceVariant),
+        ),
+      ),
+      trailing: SizedBox(
+        height: 24,
+        child: FittedBox(
+          child: Switch(
+            value: value,
+            onChanged: onUpdate,
+          ),
         ),
       ),
     );
