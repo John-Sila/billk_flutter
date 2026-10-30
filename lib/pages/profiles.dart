@@ -2,6 +2,7 @@ import 'package:billkmotolinkltd/services/toast_service.dart';
 import 'package:billkmotolinkltd/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -340,6 +341,121 @@ class _ProfilesState extends State<Profiles> {
 
     final num pending = _safeNum(user['pendingAmount'], 0);
 
+    // The expanded part of the card, built once and animated in/out below.
+    final Widget expandedBody = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 12),
+        Divider(height: 1, color: scheme.outlineVariant),
+        const SizedBox(height: 8),
+
+        // Contact - always shown, "Not set" when missing
+        _contactLine(
+          theme,
+          Icons.email_outlined,
+          _safeToString(user['email'], '').isEmpty
+              ? 'No email'
+              : _safeToString(user['email'], 'No email'),
+        ),
+        _contactLine(
+          theme,
+          Icons.phone_outlined,
+          formatted,
+          color: canCall ? accent : null,
+          onTap: canCall
+              ? () async {
+                  final Uri uri = Uri.parse(dialNumber);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    ToastService.error('Could not launch dialer');
+                  }
+                }
+              : null,
+        ),
+        // The user's document ID (uid) - tap to copy.
+        _contactLine(
+          theme,
+          Icons.fingerprint_rounded,
+          uid,
+          onTap: () async {
+            await Clipboard.setData(ClipboardData(text: uid));
+            ToastService.success('UID copied');
+          },
+        ),
+
+        if (!isPrivileged) ...[
+          _sectionLabel(theme, 'Targets & money'),
+          _ruled(theme, [
+            _EditableNumberField(
+              label: 'Daily Target',
+              value: _safeNum(user['dailyTarget'], 0).toInt(),
+              isSet: user['dailyTarget'] != null,
+              icon: Icons.flag_rounded,
+              onUpdate: (v) => _updateField(uid, 'dailyTarget', v),
+            ),
+            _EditableNumberField(
+              label: 'Sunday Target',
+              value: _safeNum(user['sundayTarget'], 0).toInt(),
+              isSet: user['sundayTarget'] != null,
+              icon: Icons.calendar_today_rounded,
+              onUpdate: (v) => _updateField(uid, 'sundayTarget', v),
+            ),
+            _PendingAmountField(
+              label: 'Pending Amount',
+              value: _safeNum(user['pendingAmount'], 0).toInt(),
+              isSet: user['pendingAmount'] != null,
+              icon: Icons.payments_rounded,
+              uid: uid,
+              onValueUpdated: (v) => {},
+            ),
+            _EditableNumberField(
+              label: 'In-App Balance',
+              value: _safeNum(user['currentInAppBalance'], 0).toInt(),
+              isSet: user['currentInAppBalance'] != null,
+              icon: Icons.account_balance_wallet_rounded,
+              onUpdate: (v) => _updateField(uid, 'currentInAppBalance', v),
+            ),
+          ]),
+
+          _sectionLabel(theme, 'Account'),
+          _ruled(theme, [
+            _EditableBoolField(
+              label: 'Active',
+              value: isActive,
+              isSet: user['isActive'] != null,
+              icon: Icons.power_settings_new_rounded,
+              onUpdate: (v) => _updateField(uid, 'isActive', v),
+            ),
+            _EditableBoolField(
+              label: 'Verified',
+              value: _toBool(user['isVerified']),
+              isSet: user['isVerified'] != null,
+              icon: Icons.verified_rounded,
+              onUpdate: (v) => _updateField(uid, 'isVerified', v),
+            ),
+            // Clocked In is set by the clock-in / clock-out flow,
+            // so it is shown read-only here.
+            _EditableBoolField(
+              label: 'Clocked In',
+              value: _toBool(user['isClockedIn']),
+              isSet: user['isClockedIn'] != null,
+              icon: Icons.login_rounded,
+              readOnly: true,
+              onUpdate: (v) => {},
+            ),
+            _EditableBoolField(
+              label: 'Working on Sunday',
+              value: _toBool(user['isWorkingOnSunday']),
+              isSet: user['isWorkingOnSunday'] != null,
+              icon: Icons.calendar_month_rounded,
+              onUpdate: (v) => _updateField(uid, 'isWorkingOnSunday', v),
+            ),
+          ]),
+        ],
+      ],
+    );
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
@@ -436,122 +552,36 @@ class _ProfilesState extends State<Profiles> {
                           ),
                           AnimatedRotation(
                             turns: isExpanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 200),
+                            duration: const Duration(milliseconds: 320),
+                            curve: Curves.easeInOutCubic,
                             child: Icon(Icons.keyboard_arrow_down_rounded, color: scheme.outline),
                           ),
                         ],
                       ),
 
-                      // Expanded body
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.fastOutSlowIn,
-                        alignment: Alignment.topCenter,
-                        child: isExpanded
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 12),
-                                  Divider(height: 1, color: scheme.outlineVariant),
-                                  const SizedBox(height: 8),
-
-                                  // Contact - always shown, "Not set" when missing
-                                  _contactLine(
-                                    theme,
-                                    Icons.email_outlined,
-                                    _safeToString(user['email'], '').isEmpty
-                                        ? 'No email'
-                                        : _safeToString(user['email'], 'No email'),
-                                  ),
-                                  _contactLine(
-                                    theme,
-                                    Icons.phone_outlined,
-                                    formatted,
-                                    color: canCall ? accent : null,
-                                    onTap: canCall
-                                        ? () async {
-                                            final Uri uri = Uri.parse(dialNumber);
-                                            if (await canLaunchUrl(uri)) {
-                                              await launchUrl(uri);
-                                            } else {
-                                              ToastService.error('Could not launch dialer');
-                                            }
-                                          }
-                                        : null,
-                                  ),
-
-                                  if (!isPrivileged) ...[
-                                    _sectionLabel(theme, 'Targets & money'),
-                                    _ruled(theme, [
-                                      _EditableNumberField(
-                                        label: 'Daily Target',
-                                        value: _safeNum(user['dailyTarget'], 0).toInt(),
-                                        isSet: user['dailyTarget'] != null,
-                                        icon: Icons.flag_rounded,
-                                        onUpdate: (v) => _updateField(uid, 'dailyTarget', v),
-                                      ),
-                                      _EditableNumberField(
-                                        label: 'Sunday Target',
-                                        value: _safeNum(user['sundayTarget'], 0).toInt(),
-                                        isSet: user['sundayTarget'] != null,
-                                        icon: Icons.calendar_today_rounded,
-                                        onUpdate: (v) => _updateField(uid, 'sundayTarget', v),
-                                      ),
-                                      _PendingAmountField(
-                                        label: 'Pending Amount',
-                                        value: _safeNum(user['pendingAmount'], 0).toInt(),
-                                        isSet: user['pendingAmount'] != null,
-                                        icon: Icons.payments_rounded,
-                                        uid: uid,
-                                        onValueUpdated: (v) => {},
-                                      ),
-                                      _EditableNumberField(
-                                        label: 'In-App Balance',
-                                        value: _safeNum(user['currentInAppBalance'], 0).toInt(),
-                                        isSet: user['currentInAppBalance'] != null,
-                                        icon: Icons.account_balance_wallet_rounded,
-                                        onUpdate: (v) => _updateField(uid, 'currentInAppBalance', v),
-                                      ),
-                                    ]),
-
-                                    _sectionLabel(theme, 'Account'),
-                                    _ruled(theme, [
-                                      _EditableBoolField(
-                                        label: 'Active',
-                                        value: isActive,
-                                        isSet: user['isActive'] != null,
-                                        icon: Icons.power_settings_new_rounded,
-                                        onUpdate: (v) => _updateField(uid, 'isActive', v),
-                                      ),
-                                      _EditableBoolField(
-                                        label: 'Verified',
-                                        value: _toBool(user['isVerified']),
-                                        isSet: user['isVerified'] != null,
-                                        icon: Icons.verified_rounded,
-                                        onUpdate: (v) => _updateField(uid, 'isVerified', v),
-                                      ),
-                                      // Clocked In is set by the clock-in / clock-out flow,
-                                      // so it is shown read-only here.
-                                      _EditableBoolField(
-                                        label: 'Clocked In',
-                                        value: _toBool(user['isClockedIn']),
-                                        isSet: user['isClockedIn'] != null,
-                                        icon: Icons.login_rounded,
-                                        readOnly: true,
-                                        onUpdate: (v) => {},
-                                      ),
-                                      _EditableBoolField(
-                                        label: 'Working on Sunday',
-                                        value: _toBool(user['isWorkingOnSunday']),
-                                        isSet: user['isWorkingOnSunday'] != null,
-                                        icon: Icons.calendar_month_rounded,
-                                        onUpdate: (v) => _updateField(uid, 'isWorkingOnSunday', v),
-                                      ),
-                                    ]),
-                                  ],
-                                ],
-                              )
-                            : const SizedBox(width: double.infinity),
+                      // Expanded body: height and opacity animate together in
+                      // both directions, so the content stays visible (and fades)
+                      // while the card contracts instead of vanishing first.
+                      TweenAnimationBuilder<double>(
+                        tween: Tween<double>(end: isExpanded ? 1.0 : 0.0),
+                        duration: const Duration(milliseconds: 320),
+                        curve: Curves.easeInOutCubic,
+                        child: expandedBody,
+                        builder: (context, t, child) {
+                          if (t == 0) {
+                            return const SizedBox(width: double.infinity);
+                          }
+                          return ClipRect(
+                            child: Align(
+                              alignment: Alignment.topCenter,
+                              heightFactor: t,
+                              child: Opacity(
+                                opacity: t.clamp(0.0, 1.0),
+                                child: child,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

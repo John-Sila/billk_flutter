@@ -86,6 +86,32 @@ Future<void> setupNotificationSystem() async {
   await Firebase.initializeApp();
 }
 
+/// A ScrollController that remembers where it last was. The drawer's list is
+/// torn down every time the drawer closes, so a normal controller would start
+/// at the top again. This one starts every new attachment at the last offset.
+/// It lives in State, so it survives as long as the app process does.
+class _MemoryScrollController extends ScrollController {
+  double _savedOffset = 0;
+
+  _MemoryScrollController() {
+    addListener(_remember);
+  }
+
+  void _remember() {
+    if (hasClients) {
+      _savedOffset = offset;
+    }
+  }
+
+  @override
+  double get initialScrollOffset => _savedOffset;
+
+  @override
+  void dispose() {
+    removeListener(_remember);
+    super.dispose();
+  }
+}
 
 class BillkMotolinkApp extends StatelessWidget {
   const BillkMotolinkApp({super.key});
@@ -206,6 +232,9 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
   String? _ourUID;
   bool _isLoggingOut = false;
   StreamSubscription<DocumentSnapshot>? _userActiveListener;
+
+  // Remembers the side menu's scroll position while the app process is alive.
+  final _MemoryScrollController _drawerScrollController = _MemoryScrollController();
 
   // Filled by the single user-doc listener in _setupUserActiveListener(). Because
   // these live in State, the drawer and the app bar always have the current values
@@ -486,6 +515,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
     _animationTimer?.cancel();
     _userActiveListener?.cancel();
     _connectivitySub?.cancel();
+    _drawerScrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -803,6 +833,7 @@ class _MainScaffoldState extends State<MainScaffold> with SingleTickerProviderSt
                         final visibleIndices = _getVisibleIndices(_userRank);
 
                         return ListView.separated(
+                          controller: _drawerScrollController,
                           padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
                           itemCount: visibleIndices.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 6),
